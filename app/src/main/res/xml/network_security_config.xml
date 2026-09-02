@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The DONA DPU hub is typically reached over the local network and, per the
+  original app's "secure local connection" toggle, may only expose plain
+  HTTP on the LAN (default local port 80) while the WAN/DDNS endpoint uses
+  HTTPS (default port 443). Cleartext is therefore allowed globally so a
+  user can talk to their own hub on their own trusted network; it is never
+  used to fetch anything from the public internet.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

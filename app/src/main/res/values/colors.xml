@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DONA brand teal, taken from the original app's welcome screen accent (#00a79d) -->
+    <color name="dona_teal">#00A79D</color>
+    <color name="dona_teal_dark">#00332F</color>
+    <color name="splash_background">#00332F</color>
+</resources>

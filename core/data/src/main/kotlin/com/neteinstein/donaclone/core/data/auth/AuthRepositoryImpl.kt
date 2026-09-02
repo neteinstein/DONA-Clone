@@ -33,10 +33,12 @@ class AuthRepositoryImpl(
     override suspend fun login(house: House): DonaResult<AuthSession> {
         _sessionState.value = SessionStatus.CONNECTING
 
+        val dns = house.dns
+        val localIp = house.localIp
         val attempts =
             buildList {
-                if (!house.dns.isNullOrBlank()) add(house.dns to house.secureDns)
-                if (!house.localIp.isNullOrBlank()) add(house.localIp to house.secureLocalIp)
+                if (!dns.isNullOrBlank()) add(dns to house.secureDns)
+                if (!localIp.isNullOrBlank()) add(localIp to house.secureLocalIp)
             }
 
         if (attempts.isEmpty()) {

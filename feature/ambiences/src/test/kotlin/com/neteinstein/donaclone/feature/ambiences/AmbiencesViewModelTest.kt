@@ -48,6 +48,7 @@ class AmbiencesViewModelTest {
 
             viewModel.uiState.test {
                 expectMostRecentItem()
+                awaitItem() // ambiences loaded by the init { refresh() } call
                 viewModel.toggle(movieNight)
                 val optimistic = awaitItem()
                 assertEquals(true, optimistic.ambiences.first().isPlaying)
@@ -62,6 +63,7 @@ class AmbiencesViewModelTest {
 
             viewModel.uiState.test {
                 expectMostRecentItem()
+                awaitItem() // ambiences loaded by the init { refresh() } call
                 viewModel.toggle(movieNight)
                 awaitItem() // optimistic flip
                 val rolledBack = awaitItem()

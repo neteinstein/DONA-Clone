@@ -74,6 +74,10 @@ and documented at their definition site.
 1. Open the project root in Android Studio (Ladybug or newer) and let it sync — the
    Gradle wrapper (`./gradlew`) will fetch the exact Gradle/AGP/Kotlin versions
    pinned in `gradle/wrapper/gradle-wrapper.properties` and `gradle/libs.versions.toml`.
+   Gradle 8.7 needs a JDK between 8 and 21 to *run* Gradle itself — if Android
+   Studio reports an "Incompatible Gradle JVM version" (e.g. it picked JDK 22+ by
+   default), set **Settings → Build, Execution, Deployment → Build Tools → Gradle →
+   Gradle JDK** to JDK 17 or 21.
 2. Build/run the `app` module on a device or emulator **on the same network as the
    hub** (LAN discovery needs real UDP broadcast, which doesn't work from most
    emulator NAT configurations — use a physical device, or an emulator configured

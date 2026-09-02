@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 
@@ -100,9 +101,9 @@ class DomotalkApiImpl(
     ): String {
         val options =
             buildJsonObject {
-                put("userId", userId)
-                put("password", md5Password)
-                put("forever", true)
+                put("userId", JsonPrimitive(userId))
+                put("password", JsonPrimitive(md5Password))
+                put("forever", JsonPrimitive(true))
             }
         val element = socket.request("create", "session", options)
         val session = json.decodeFromJsonElement(SessionDto.serializer(), element)
@@ -112,7 +113,7 @@ class DomotalkApiImpl(
 
     override suspend fun resumeSession(token: String) {
         socket.token = token
-        socket.request("action", "session", buildJsonObject { put("token", token) })
+        socket.request("action", "session", buildJsonObject { put("token", JsonPrimitive(token)) })
     }
 
     override suspend fun logout() {

@@ -8,7 +8,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.content
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
@@ -163,8 +162,8 @@ object DeviceJsonMapper {
                     fieldUpdates.forEach { (key, value) -> if (!rawDevice.containsKey(key)) put(key, value) }
                 },
             )
-            put("action", action)
-            if (percentage != null) put("percentage", percentage)
+            put("action", JsonPrimitive(action))
+            if (percentage != null) put("percentage", JsonPrimitive(percentage))
         }
 
     private fun statusIsOn(raw: JsonObject): Boolean {

@@ -16,7 +16,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.content
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -167,12 +166,12 @@ class DomotalkSocket(
 
         val payload =
             buildJsonObject {
-                put("verb", verb)
-                put("subject", subject)
+                put("verb", JsonPrimitive(verb))
+                put("subject", JsonPrimitive(subject))
                 options?.let { put("options", it) }
                 filters?.let { put("filters", it) }
                 token?.let { put("token", JsonPrimitive(it)) }
-                put("callback_id", callbackId)
+                put("callback_id", JsonPrimitive(callbackId))
             }
 
         val sent = socket.send(json.encodeToString(JsonObject.serializer(), payload))

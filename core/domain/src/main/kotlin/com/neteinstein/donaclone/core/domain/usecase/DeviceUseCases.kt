@@ -8,12 +8,16 @@ import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
 import kotlinx.coroutines.flow.Flow
 
-class GetRoomsUseCase(private val repository: DeviceRepository) {
+class GetRoomsUseCase(
+    private val repository: DeviceRepository,
+) {
     suspend operator fun invoke(): DonaResult<List<Division>> = repository.getRooms()
 }
 
 /** Fetches every controllable/readable device (outputs + inputs) in one call. */
-class GetDevicesUseCase(private val repository: DeviceRepository) {
+class GetDevicesUseCase(
+    private val repository: DeviceRepository,
+) {
     suspend operator fun invoke(): DonaResult<List<Device>> {
         val outputs = repository.getOutputDevices()
         if (outputs is DonaResult.Error) return outputs
@@ -24,10 +28,14 @@ class GetDevicesUseCase(private val repository: DeviceRepository) {
     }
 }
 
-class SendDeviceCommandUseCase(private val repository: DeviceRepository) {
+class SendDeviceCommandUseCase(
+    private val repository: DeviceRepository,
+) {
     suspend operator fun invoke(command: DeviceCommand): DonaResult<Unit> = repository.sendCommand(command)
 }
 
-class ObserveDeviceUpdatesUseCase(private val repository: DeviceRepository) {
+class ObserveDeviceUpdatesUseCase(
+    private val repository: DeviceRepository,
+) {
     operator fun invoke(): Flow<DeviceUpdate> = repository.observeDeviceUpdates()
 }

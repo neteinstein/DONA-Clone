@@ -11,28 +11,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TriggerAmbienceUseCaseTest {
-
     private val repository = mockk<AmbienceRepository>()
     private val useCase = TriggerAmbienceUseCase(repository)
 
     @Test
-    fun `a stopped ambience is triggered to run`() = runTest {
-        val ambience = Ambience(id = 1, name = "Movie night", isPlaying = false, enabled = true)
-        coEvery { repository.triggerAmbience(1, run = true) } returns DonaResult.Success(Unit)
+    fun `a stopped ambience is triggered to run`() =
+        runTest {
+            val ambience = Ambience(id = 1, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { repository.triggerAmbience(1, run = true) } returns DonaResult.Success(Unit)
 
-        val result = useCase(ambience)
+            val result = useCase(ambience)
 
-        assertTrue(result is DonaResult.Success)
-        coVerify { repository.triggerAmbience(1, run = true) }
-    }
+            assertTrue(result is DonaResult.Success)
+            coVerify { repository.triggerAmbience(1, run = true) }
+        }
 
     @Test
-    fun `a running ambience is stopped`() = runTest {
-        val ambience = Ambience(id = 2, name = "Good morning", isPlaying = true, enabled = true)
-        coEvery { repository.triggerAmbience(2, run = false) } returns DonaResult.Success(Unit)
+    fun `a running ambience is stopped`() =
+        runTest {
+            val ambience = Ambience(id = 2, name = "Good morning", isPlaying = true, enabled = true)
+            coEvery { repository.triggerAmbience(2, run = false) } returns DonaResult.Success(Unit)
 
-        useCase(ambience)
+            useCase(ambience)
 
-        coVerify { repository.triggerAmbience(2, run = false) }
-    }
+            coVerify { repository.triggerAmbience(2, run = false) }
+        }
 }

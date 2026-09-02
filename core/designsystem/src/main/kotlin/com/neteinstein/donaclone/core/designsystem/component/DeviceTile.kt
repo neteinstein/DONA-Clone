@@ -55,23 +55,28 @@ fun DeviceTile(
         label = "device-tile-scale",
     )
 
-    val clickableModifier = if (onClick != null) {
-        Modifier.clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
-    } else {
-        Modifier
-    }
+    val clickableModifier =
+        if (onClick != null) {
+            Modifier.clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
+        } else {
+            Modifier
+        }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .then(clickableModifier),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }.then(clickableModifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -107,7 +112,11 @@ fun DeviceTile(
 }
 
 @Composable
-fun BinaryOutputSwitch(isOn: Boolean, onToggle: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun BinaryOutputSwitch(
+    isOn: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val trackColor by animateColorAsState(
         targetValue = if (isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         label = "switch-track-color",

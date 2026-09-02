@@ -11,7 +11,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DeviceJsonMapperTest {
-
     private val json = Json { ignoreUnknownKeys = true }
 
     private fun obj(text: String): JsonObject = json.parseToJsonElement(text).jsonObject
@@ -78,10 +77,11 @@ class DeviceJsonMapperTest {
     @Test
     fun `buildActionOptions merges field updates into a copy of the raw object`() {
         val raw = obj("""{"id":1,"name":"Kitchen light","status":0}""")
-        val options = DeviceJsonMapper.buildActionOptions(
-            rawDevice = raw,
-            action = 1,
-        )
+        val options =
+            DeviceJsonMapper.buildActionOptions(
+                rawDevice = raw,
+                action = 1,
+            )
         val objectField = options["object"]!!.jsonObject
         assertEquals(raw["id"], objectField["id"])
         assertEquals(raw["name"], objectField["name"])

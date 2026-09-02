@@ -22,7 +22,6 @@ class AmbiencesViewModel(
     private val getAmbiences: GetAmbiencesUseCase,
     private val triggerAmbience: TriggerAmbienceUseCase,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(AmbiencesUiState())
     val uiState: StateFlow<AmbiencesUiState> = _uiState.asStateFlow()
 

@@ -13,7 +13,6 @@ import com.neteinstein.donaclone.core.designsystem.theme.DonaTheme
 import com.neteinstein.donaclone.navigation.DonaNavHost
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)

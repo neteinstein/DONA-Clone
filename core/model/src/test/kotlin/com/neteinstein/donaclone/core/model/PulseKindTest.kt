@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PulseKindTest {
-
     @Test
     fun `known wire values map to the expected kind`() {
         assertEquals(PulseKind.SIREN, PulseKind.fromWireValue(10))

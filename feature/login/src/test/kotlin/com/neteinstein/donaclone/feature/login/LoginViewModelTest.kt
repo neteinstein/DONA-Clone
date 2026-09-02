@@ -25,7 +25,6 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoginViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
 
     private val house = House(name = "Home", localIp = "192.168.1.50", username = "alice", password = "secret")
@@ -51,47 +50,50 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun `houses are loaded and the first one is preselected`() = runTest(dispatcher) {
-        val viewModel = createViewModel()
+    fun `houses are loaded and the first one is preselected`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
 
-        viewModel.uiState.test {
-            val state = expectMostRecentItem()
-            assertEquals(house, state.selectedHouse)
-            assertEquals("alice", state.username)
+            viewModel.uiState.test {
+                val state = expectMostRecentItem()
+                assertEquals(house, state.selectedHouse)
+                assertEquals("alice", state.username)
+            }
         }
-    }
 
     @Test
-    fun `successful login updates state and clears the error`() = runTest(dispatcher) {
-        val viewModel = createViewModel()
-        val session = AuthSession(token = "t", userId = 1, userName = "alice", houseName = "Home")
-        coEvery { login.invoke(any()) } returns DonaResult.Success(session)
+    fun `successful login updates state and clears the error`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            val session = AuthSession(token = "t", userId = 1, userName = "alice", houseName = "Home")
+            coEvery { login.invoke(any()) } returns DonaResult.Success(session)
 
-        viewModel.uiState.test {
-            expectMostRecentItem()
-            viewModel.login()
-            val loading = awaitItem()
-            assertEquals(true, loading.isLoading)
-            val done = awaitItem()
-            assertEquals(false, done.isLoading)
-            assertEquals(true, done.loginSucceeded)
-            assertNull(done.errorMessage)
+            viewModel.uiState.test {
+                expectMostRecentItem()
+                viewModel.login()
+                val loading = awaitItem()
+                assertEquals(true, loading.isLoading)
+                val done = awaitItem()
+                assertEquals(false, done.isLoading)
+                assertEquals(true, done.loginSucceeded)
+                assertNull(done.errorMessage)
+            }
         }
-    }
 
     @Test
-    fun `failed login surfaces an error message`() = runTest(dispatcher) {
-        val viewModel = createViewModel()
-        coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
+    fun `failed login surfaces an error message`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
 
-        viewModel.uiState.test {
-            expectMostRecentItem()
-            viewModel.login()
-            skipItems(1)
-            val failed = awaitItem()
-            assertEquals(false, failed.isLoading)
-            assertEquals(false, failed.loginSucceeded)
-            assertEquals("Wrong password", failed.errorMessage)
+            viewModel.uiState.test {
+                expectMostRecentItem()
+                viewModel.login()
+                skipItems(1)
+                val failed = awaitItem()
+                assertEquals(false, failed.isLoading)
+                assertEquals(false, failed.loginSucceeded)
+                assertEquals("Wrong password", failed.errorMessage)
+            }
         }
-    }
 }

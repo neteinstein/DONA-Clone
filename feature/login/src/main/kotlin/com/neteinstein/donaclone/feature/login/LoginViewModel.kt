@@ -28,7 +28,6 @@ class LoginViewModel(
     private val getActiveHouse: GetActiveHouseUseCase,
     private val login: LoginUseCase,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
@@ -70,9 +69,10 @@ class LoginViewModel(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             when (val result = login.invoke(credentials)) {
                 is DonaResult.Success -> _uiState.update { it.copy(isLoading = false, loginSucceeded = true) }
-                is DonaResult.Error -> _uiState.update {
-                    it.copy(isLoading = false, errorMessage = result.failure.message ?: "Could not log in")
-                }
+                is DonaResult.Error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = result.failure.message ?: "Could not log in")
+                    }
             }
         }
     }

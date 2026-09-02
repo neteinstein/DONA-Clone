@@ -79,24 +79,26 @@ fun AmbiencesScreen(
                     icon = Icons.Filled.PlayCircle,
                     modifier = Modifier.padding(padding),
                 )
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-            ) {
-                items(uiState.ambiences, key = { it.id }) { ambience ->
-                    SceneCard(
-                        name = ambience.name,
-                        icon = Icons.Filled.PlayCircle,
-                        isPlaying = ambience.isPlaying,
-                        onClick = { onToggle(ambience) },
-                    )
+            else ->
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier =
+                        Modifier
+                            .padding(padding)
+                            .fillMaxSize(),
+                ) {
+                    items(uiState.ambiences, key = { it.id }) { ambience ->
+                        SceneCard(
+                            name = ambience.name,
+                            icon = Icons.Filled.PlayCircle,
+                            isPlaying = ambience.isPlaying,
+                            onClick = { onToggle(ambience) },
+                        )
+                    }
                 }
-            }
         }
     }
 }

@@ -20,12 +20,12 @@ class DashboardViewModel(
     getCurrentSession: GetCurrentSessionUseCase,
     private val logout: LogoutUseCase,
 ) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(
-        getCurrentSession()?.let { session ->
-            DashboardUiState(houseName = session.houseName, userName = session.userName)
-        } ?: DashboardUiState(),
-    )
+    private val _uiState =
+        MutableStateFlow(
+            getCurrentSession()?.let { session ->
+                DashboardUiState(houseName = session.houseName, userName = session.userName)
+            } ?: DashboardUiState(),
+        )
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     fun logout() {

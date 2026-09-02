@@ -35,55 +35,56 @@ interface DiscoveryClient {
 }
 
 class UdpDiscoveryClient : DiscoveryClient {
-
     private val lenientJson = Json { ignoreUnknownKeys = true }
 
-    override fun discoverHouses(listenWindowMillis: Long): Flow<DiscoveredHouse> = callbackFlow {
-        val seenMacs = HashSet<String>()
-        val sockets = DISCOVERY_PORTS.mapNotNull { port -> runCatching { openBroadcastSocket(port) }.getOrNull() }
+    override fun discoverHouses(listenWindowMillis: Long): Flow<DiscoveredHouse> =
+        callbackFlow {
+            val seenMacs = HashSet<String>()
+            val sockets = discoveryPorts.mapNotNull { port -> runCatching { openBroadcastSocket(port) }.getOrNull() }
 
-        if (sockets.isEmpty()) {
-            close(IllegalStateException("Could not open any discovery UDP socket"))
-            return@callbackFlow
-        }
+            if (sockets.isEmpty()) {
+                close(IllegalStateException("Could not open any discovery UDP socket"))
+                return@callbackFlow
+            }
 
-        val listenerJobs = sockets.map { socket ->
-            launch(Dispatchers.IO) {
-                val buffer = ByteArray(2048)
-                socket.soTimeout = 250
-                while (isActive) {
-                    try {
-                        val packet = DatagramPacket(buffer, buffer.size)
-                        socket.receive(packet)
-                        val bytes = packet.data.copyOfRange(0, packet.length)
-                        parseReply(bytes)?.let { house ->
-                            if (seenMacs.add(house.mac)) trySend(house)
+            val listenerJobs =
+                sockets.map { socket ->
+                    launch(Dispatchers.IO) {
+                        val buffer = ByteArray(2048)
+                        socket.soTimeout = 250
+                        while (isActive) {
+                            try {
+                                val packet = DatagramPacket(buffer, buffer.size)
+                                socket.receive(packet)
+                                val bytes = packet.data.copyOfRange(0, packet.length)
+                                parseReply(bytes)?.let { house ->
+                                    if (seenMacs.add(house.mac)) trySend(house)
+                                }
+                            } catch (_: SocketTimeoutException) {
+                                // expected, keep polling until the window closes
+                            } catch (_: SocketException) {
+                                break
+                            } catch (t: Throwable) {
+                                Timber.w(t, "Discovery socket read failed")
+                            }
                         }
-                    } catch (_: SocketTimeoutException) {
-                        // expected, keep polling until the window closes
-                    } catch (_: SocketException) {
-                        break
-                    } catch (t: Throwable) {
-                        Timber.w(t, "Discovery socket read failed")
                     }
                 }
+
+            sockets.forEach { socket ->
+                runCatching { broadcastProbe(socket) }.onFailure { Timber.w(it, "Failed to send discovery probe") }
+            }
+
+            launch(Dispatchers.IO) {
+                kotlinx.coroutines.delay(listenWindowMillis)
+                close()
+            }
+
+            awaitClose {
+                listenerJobs.forEach { it.cancel() }
+                sockets.forEach { runCatching { it.close() } }
             }
         }
-
-        sockets.forEach { socket ->
-            runCatching { broadcastProbe(socket) }.onFailure { Timber.w(it, "Failed to send discovery probe") }
-        }
-
-        launch(Dispatchers.IO) {
-            kotlinx.coroutines.delay(listenWindowMillis)
-            close()
-        }
-
-        awaitClose {
-            listenerJobs.forEach { it.cancel() }
-            sockets.forEach { runCatching { it.close() } }
-        }
-    }
 
     private fun openBroadcastSocket(port: Int): DatagramSocket =
         DatagramSocket(null).apply {
@@ -123,13 +124,18 @@ class UdpDiscoveryClient : DiscoveryClient {
     }
 
     /** Mirrors `y4.b`'s firmware-gated MTYPE-vs-HW fallback for classifying the hub hardware. */
-    private fun resolveHubType(mtype: Int?, firmware: String?, hardware: String?): HubType {
+    private fun resolveHubType(
+        mtype: Int?,
+        firmware: String?,
+        hardware: String?,
+    ): HubType {
         val firmwareParts = firmware?.split(".")?.mapNotNull { it.toIntOrNull() }
-        val firmwareAtLeast1_2 = firmwareParts != null &&
-            firmwareParts.isNotEmpty() &&
-            (firmwareParts[0] > 1 || (firmwareParts[0] == 1 && (firmwareParts.getOrNull(1) ?: 0) >= 2))
+        val firmwareSupportsMtype =
+            firmwareParts != null &&
+                firmwareParts.isNotEmpty() &&
+                (firmwareParts[0] > 1 || (firmwareParts[0] == 1 && (firmwareParts.getOrNull(1) ?: 0) >= 2))
 
-        if (firmwareAtLeast1_2 && mtype != null) {
+        if (firmwareSupportsMtype && mtype != null) {
             return when (mtype) {
                 0 -> HubType.DPU
                 1 -> HubType.D815
@@ -156,6 +162,6 @@ class UdpDiscoveryClient : DiscoveryClient {
         const val BROADCAST_MESSAGE = "domobroadcast"
         const val BROADCAST_ADDRESS = "255.255.255.255"
         const val PROVISIONING_ACK_SIZE = 32
-        val DISCOVERY_PORTS = listOf(7777, 7778)
+        val discoveryPorts = listOf(7777, 7778)
     }
 }

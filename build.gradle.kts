@@ -12,6 +12,10 @@ plugins {
 
 subprojects {
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    // Every project referenced by `kover(project(":x"))` below must itself carry the Kover
+    // plugin so it publishes the coverage-tagged variants the root's merged report resolves
+    // against — applying it only at the root leaves those variants ambiguous/missing.
+    apply(plugin = "org.jetbrains.kotlinx.kover")
 }
 
 dependencies {

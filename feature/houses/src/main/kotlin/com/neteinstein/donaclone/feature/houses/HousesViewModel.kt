@@ -17,7 +17,11 @@ import kotlinx.coroutines.launch
 
 sealed interface HousesMode {
     data object List : HousesMode
-    data class Editing(val original: House?, val draft: House) : HousesMode
+
+    data class Editing(
+        val original: House?,
+        val draft: House,
+    ) : HousesMode
 }
 
 data class HousesUiState(
@@ -33,7 +37,6 @@ class HousesViewModel(
     private val deleteHouse: DeleteHouseUseCase,
     private val discoverHouses: DiscoverHousesUseCase,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(HousesUiState())
     val uiState: StateFlow<HousesUiState> = _uiState.asStateFlow()
 
@@ -92,12 +95,13 @@ class HousesViewModel(
     private fun startDiscovery() {
         stopDiscovery()
         _uiState.update { it.copy(isDiscovering = true, discovered = emptyList()) }
-        discoveryJob = viewModelScope.launch {
-            discoverHouses().collect { found ->
-                _uiState.update { it.copy(discovered = it.discovered + found) }
+        discoveryJob =
+            viewModelScope.launch {
+                discoverHouses().collect { found ->
+                    _uiState.update { it.copy(discovered = it.discovered + found) }
+                }
+                _uiState.update { it.copy(isDiscovering = false) }
             }
-            _uiState.update { it.copy(isDiscovering = false) }
-        }
     }
 
     private fun stopDiscovery() {

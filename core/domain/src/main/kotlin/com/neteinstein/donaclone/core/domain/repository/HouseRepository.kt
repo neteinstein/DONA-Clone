@@ -6,11 +6,15 @@ import kotlinx.coroutines.flow.Flow
 
 interface HouseRepository {
     fun observeHouses(): Flow<List<House>>
+
     suspend fun getHouse(name: String): House?
+
     suspend fun saveHouse(house: House)
+
     suspend fun deleteHouse(name: String)
 
     val activeHouseName: Flow<String?>
+
     suspend fun setActiveHouseName(name: String?)
 }
 

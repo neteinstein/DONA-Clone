@@ -17,17 +17,27 @@ import javax.net.ssl.X509TrustManager
  * makes, since it is only appropriate for a known local device on a trusted network.
  */
 internal object TrustAllCerts {
+    private val trustManager =
+        object : X509TrustManager {
+            override fun checkClientTrusted(
+                chain: Array<out X509Certificate>?,
+                authType: String?,
+            ) = Unit
 
-    private val trustManager = object : X509TrustManager {
-        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
-        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
-        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-    }
+            override fun checkServerTrusted(
+                chain: Array<out X509Certificate>?,
+                authType: String?,
+            ) = Unit
+
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        }
 
     val sslSocketFactory: SSLSocketFactory by lazy {
-        SSLContext.getInstance("TLS").apply {
-            init(null, arrayOf(trustManager), SecureRandom())
-        }.socketFactory
+        SSLContext
+            .getInstance("TLS")
+            .apply {
+                init(null, arrayOf(trustManager), SecureRandom())
+            }.socketFactory
     }
 
     val x509TrustManager: X509TrustManager get() = trustManager

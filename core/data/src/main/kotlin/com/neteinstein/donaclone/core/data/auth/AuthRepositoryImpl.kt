@@ -24,7 +24,6 @@ class AuthRepositoryImpl(
     private val socket: DomotalkSocket,
     private val api: DomotalkApi,
 ) : AuthRepository {
-
     private val _sessionState = MutableStateFlow(SessionStatus.DISCONNECTED)
     override val sessionState: StateFlow<SessionStatus> = _sessionState.asStateFlow()
 
@@ -34,10 +33,11 @@ class AuthRepositoryImpl(
     override suspend fun login(house: House): DonaResult<AuthSession> {
         _sessionState.value = SessionStatus.CONNECTING
 
-        val attempts = buildList {
-            if (!house.dns.isNullOrBlank()) add(house.dns to house.secureDns)
-            if (!house.localIp.isNullOrBlank()) add(house.localIp to house.secureLocalIp)
-        }
+        val attempts =
+            buildList {
+                if (!house.dns.isNullOrBlank()) add(house.dns to house.secureDns)
+                if (!house.localIp.isNullOrBlank()) add(house.localIp to house.secureLocalIp)
+            }
 
         if (attempts.isEmpty()) {
             _sessionState.value = SessionStatus.DISCONNECTED
@@ -63,7 +63,11 @@ class AuthRepositoryImpl(
         return DonaResult.Error(lastFailure)
     }
 
-    private suspend fun attemptLogin(host: String, secure: Boolean, house: House): DonaResult<AuthSession> {
+    private suspend fun attemptLogin(
+        host: String,
+        secure: Boolean,
+        house: House,
+    ): DonaResult<AuthSession> {
         try {
             socket.connect(host, secure)
         } catch (e: DomotalkException) {

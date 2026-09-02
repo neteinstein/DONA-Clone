@@ -19,24 +19,25 @@ import com.neteinstein.donaclone.core.domain.usecase.TriggerAmbienceUseCase
 import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
 
-val useCaseModule = module {
-    factoryOf(::ObserveHousesUseCase)
-    factoryOf(::SaveHouseUseCase)
-    factoryOf(::DeleteHouseUseCase)
-    factoryOf(::GetActiveHouseUseCase)
-    factoryOf(::SetActiveHouseUseCase)
-    factoryOf(::DiscoverHousesUseCase)
+val useCaseModule =
+    module {
+        factoryOf(::ObserveHousesUseCase)
+        factoryOf(::SaveHouseUseCase)
+        factoryOf(::DeleteHouseUseCase)
+        factoryOf(::GetActiveHouseUseCase)
+        factoryOf(::SetActiveHouseUseCase)
+        factoryOf(::DiscoverHousesUseCase)
 
-    factoryOf(::LoginUseCase)
-    factoryOf(::LogoutUseCase)
-    factoryOf(::ObserveSessionStateUseCase)
-    factoryOf(::GetCurrentSessionUseCase)
+        factoryOf(::LoginUseCase)
+        factoryOf(::LogoutUseCase)
+        factoryOf(::ObserveSessionStateUseCase)
+        factoryOf(::GetCurrentSessionUseCase)
 
-    factoryOf(::GetRoomsUseCase)
-    factoryOf(::GetDevicesUseCase)
-    factoryOf(::SendDeviceCommandUseCase)
-    factoryOf(::ObserveDeviceUpdatesUseCase)
+        factoryOf(::GetRoomsUseCase)
+        factoryOf(::GetDevicesUseCase)
+        factoryOf(::SendDeviceCommandUseCase)
+        factoryOf(::ObserveDeviceUpdatesUseCase)
 
-    factoryOf(::GetAmbiencesUseCase)
-    factoryOf(::TriggerAmbienceUseCase)
-}
+        factoryOf(::GetAmbiencesUseCase)
+        factoryOf(::TriggerAmbienceUseCase)
+    }

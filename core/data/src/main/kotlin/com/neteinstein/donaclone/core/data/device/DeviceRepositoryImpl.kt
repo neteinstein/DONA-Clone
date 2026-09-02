@@ -24,33 +24,36 @@ import java.util.concurrent.ConcurrentHashMap
 class DeviceRepositoryImpl(
     private val api: DomotalkApi,
 ) : DeviceRepository {
-
     private val rawDeviceCache = ConcurrentHashMap<Int, JsonObject>()
 
-    override suspend fun getRooms(): DonaResult<List<Division>> = donaResultCatching {
-        api.readRooms().map { Division(id = it.id, name = it.name, floor = it.floor) }
-    }
-
-    override suspend fun getOutputDevices(): DonaResult<List<Device>> = donaResultCatching {
-        api.readDeviceOut().map { snapshot ->
-            rawDeviceCache[snapshot.device.id] = snapshot.raw
-            snapshot.device
+    override suspend fun getRooms(): DonaResult<List<Division>> =
+        donaResultCatching {
+            api.readRooms().map { Division(id = it.id, name = it.name, floor = it.floor) }
         }
-    }
 
-    override suspend fun getInputDevices(): DonaResult<List<Device>> = donaResultCatching {
-        api.readDeviceIn().map { snapshot ->
-            rawDeviceCache[snapshot.device.id] = snapshot.raw
-            snapshot.device
+    override suspend fun getOutputDevices(): DonaResult<List<Device>> =
+        donaResultCatching {
+            api.readDeviceOut().map { snapshot ->
+                rawDeviceCache[snapshot.device.id] = snapshot.raw
+                snapshot.device
+            }
         }
-    }
+
+    override suspend fun getInputDevices(): DonaResult<List<Device>> =
+        donaResultCatching {
+            api.readDeviceIn().map { snapshot ->
+                rawDeviceCache[snapshot.device.id] = snapshot.raw
+                snapshot.device
+            }
+        }
 
     override suspend fun sendCommand(command: DeviceCommand): DonaResult<Unit> {
         val deviceId = command.deviceId()
-        val raw = rawDeviceCache[deviceId]
-            ?: return DonaResult.Error(
-                DonaFailure.Unknown("Device $deviceId hasn't been read yet, cannot build a command for it"),
-            )
+        val raw =
+            rawDeviceCache[deviceId]
+                ?: return DonaResult.Error(
+                    DonaFailure.Unknown("Device $deviceId hasn't been read yet, cannot build a command for it"),
+                )
 
         return donaResultCatching {
             when (command) {
@@ -68,20 +71,28 @@ class DeviceRepositoryImpl(
 
     /** Best-effort parse of the unconfirmed push envelope described in protocol notes §8. */
     private fun parseUpdate(message: JsonObject): DeviceUpdate? {
-        val objectJson = message["request"]
-            ?.let { it as? JsonObject }
-            ?.get("options")
-            ?.let { it as? JsonObject }
-            ?.get("object")
-            ?.let { it as? JsonObject }
-            ?: return null
+        val objectJson =
+            message["request"]
+                ?.let { it as? JsonObject }
+                ?.get("options")
+                ?.let { it as? JsonObject }
+                ?.get("object")
+                ?.let { it as? JsonObject }
+                ?: return null
 
         val id = objectJson["id"]?.jsonPrimitive?.content?.toIntOrNull() ?: return null
         rawDeviceCache[id] = objectJson
 
         return when {
             objectJson.containsKey("percentage") ->
-                DeviceUpdate.Percentage(id, objectJson["percentage"]?.jsonPrimitive?.content?.toDoubleOrNull()?.toInt() ?: 0)
+                DeviceUpdate.Percentage(
+                    id,
+                    objectJson["percentage"]
+                        ?.jsonPrimitive
+                        ?.content
+                        ?.toDoubleOrNull()
+                        ?.toInt() ?: 0,
+                )
             objectJson.containsKey("value") ->
                 DeviceUpdate.NumericValue(id, objectJson["value"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.0)
             objectJson.containsKey("status") ->
@@ -90,12 +101,13 @@ class DeviceRepositoryImpl(
         }
     }
 
-    private fun DeviceCommand.deviceId(): Int = when (this) {
-        is DeviceCommand.SetBinaryOutput -> deviceId
-        is DeviceCommand.FirePulse -> deviceId
-        is DeviceCommand.SetShutterOpen -> deviceId
-        is DeviceCommand.SetShutterClosed -> deviceId
-        is DeviceCommand.SetShutterPercentage -> deviceId
-        is DeviceCommand.SetDimmerPercentage -> deviceId
-    }
+    private fun DeviceCommand.deviceId(): Int =
+        when (this) {
+            is DeviceCommand.SetBinaryOutput -> deviceId
+            is DeviceCommand.FirePulse -> deviceId
+            is DeviceCommand.SetShutterOpen -> deviceId
+            is DeviceCommand.SetShutterClosed -> deviceId
+            is DeviceCommand.SetShutterPercentage -> deviceId
+            is DeviceCommand.SetDimmerPercentage -> deviceId
+        }
 }

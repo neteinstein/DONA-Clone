@@ -28,7 +28,6 @@ import kotlinx.serialization.json.intOrNull
  * wire values) under a `type` key, that is honoured first.
  */
 object DeviceJsonMapper {
-
     fun parseDeviceOut(raw: JsonObject): Device {
         val common = commonFieldsOf(raw)
         val hasPercentage = raw.containsKey("percentage")
@@ -71,8 +70,10 @@ object DeviceJsonMapper {
                     online = common.online,
                     roomId = common.roomId,
                     freeTypeLabel = common.freeTypeLabel,
-                    kind = raw["subtype"]?.let { (it as? JsonPrimitive)?.intOrNull }
-                        ?.let(PulseKind::fromWireValue) ?: PulseKind.UNKNOWN,
+                    kind =
+                        raw["subtype"]
+                            ?.let { (it as? JsonPrimitive)?.intOrNull }
+                            ?.let(PulseKind::fromWireValue) ?: PulseKind.UNKNOWN,
                     durationSeconds = raw["duration"]?.let { (it as? JsonPrimitive)?.intOrNull },
                 )
 
@@ -88,54 +89,58 @@ object DeviceJsonMapper {
                     isOn = statusIsOn(raw),
                 )
 
-            else -> Device.UnknownDevice(
-                id = common.id,
-                name = common.name,
-                description = common.description,
-                enabled = common.enabled,
-                online = common.online,
-                roomId = common.roomId,
-                freeTypeLabel = common.freeTypeLabel,
-                rawTypeCode = explicitCode,
-            )
+            else ->
+                Device.UnknownDevice(
+                    id = common.id,
+                    name = common.name,
+                    description = common.description,
+                    enabled = common.enabled,
+                    online = common.online,
+                    roomId = common.roomId,
+                    freeTypeLabel = common.freeTypeLabel,
+                    rawTypeCode = explicitCode,
+                )
         }
     }
 
     fun parseDeviceIn(raw: JsonObject): Device {
         val common = commonFieldsOf(raw)
         return when {
-            raw.containsKey("status") -> Device.BinaryInput(
-                id = common.id,
-                name = common.name,
-                description = common.description,
-                enabled = common.enabled,
-                online = common.online,
-                roomId = common.roomId,
-                freeTypeLabel = common.freeTypeLabel,
-                isActive = statusIsOn(raw),
-            )
+            raw.containsKey("status") ->
+                Device.BinaryInput(
+                    id = common.id,
+                    name = common.name,
+                    description = common.description,
+                    enabled = common.enabled,
+                    online = common.online,
+                    roomId = common.roomId,
+                    freeTypeLabel = common.freeTypeLabel,
+                    isActive = statusIsOn(raw),
+                )
 
-            raw.containsKey("value") -> Device.AnalogInput(
-                id = common.id,
-                name = common.name,
-                description = common.description,
-                enabled = common.enabled,
-                online = common.online,
-                roomId = common.roomId,
-                freeTypeLabel = common.freeTypeLabel,
-                value = (raw.getValue("value") as JsonPrimitive).double,
-            )
+            raw.containsKey("value") ->
+                Device.AnalogInput(
+                    id = common.id,
+                    name = common.name,
+                    description = common.description,
+                    enabled = common.enabled,
+                    online = common.online,
+                    roomId = common.roomId,
+                    freeTypeLabel = common.freeTypeLabel,
+                    value = (raw.getValue("value") as JsonPrimitive).double,
+                )
 
-            else -> Device.UnknownDevice(
-                id = common.id,
-                name = common.name,
-                description = common.description,
-                enabled = common.enabled,
-                online = common.online,
-                roomId = common.roomId,
-                freeTypeLabel = common.freeTypeLabel,
-                rawTypeCode = null,
-            )
+            else ->
+                Device.UnknownDevice(
+                    id = common.id,
+                    name = common.name,
+                    description = common.description,
+                    enabled = common.enabled,
+                    online = common.online,
+                    roomId = common.roomId,
+                    freeTypeLabel = common.freeTypeLabel,
+                    rawTypeCode = null,
+                )
         }
     }
 
@@ -149,17 +154,18 @@ object DeviceJsonMapper {
         action: Int,
         percentage: Int? = null,
         fieldUpdates: Map<String, JsonElement> = emptyMap(),
-    ): JsonObject = buildJsonObject {
-        put(
-            "object",
-            buildJsonObject {
-                rawDevice.forEach { (key, value) -> put(key, fieldUpdates[key] ?: value) }
-                fieldUpdates.forEach { (key, value) -> if (!rawDevice.containsKey(key)) put(key, value) }
-            },
-        )
-        put("action", action)
-        if (percentage != null) put("percentage", percentage)
-    }
+    ): JsonObject =
+        buildJsonObject {
+            put(
+                "object",
+                buildJsonObject {
+                    rawDevice.forEach { (key, value) -> put(key, fieldUpdates[key] ?: value) }
+                    fieldUpdates.forEach { (key, value) -> if (!rawDevice.containsKey(key)) put(key, value) }
+                },
+            )
+            put("action", action)
+            if (percentage != null) put("percentage", percentage)
+        }
 
     private fun statusIsOn(raw: JsonObject): Boolean {
         val status = raw["status"] as? JsonPrimitive ?: return false
@@ -176,13 +182,14 @@ object DeviceJsonMapper {
         val freeTypeLabel: String?,
     )
 
-    private fun commonFieldsOf(raw: JsonObject): CommonFields = CommonFields(
-        id = (raw.getValue("id") as JsonPrimitive).int,
-        name = (raw["name"] as? JsonPrimitive)?.content.orEmpty(),
-        description = (raw["description"] as? JsonPrimitive)?.content,
-        enabled = (raw["enabled"] as? JsonPrimitive)?.boolean ?: true,
-        online = (raw["online"] as? JsonPrimitive)?.boolean ?: true,
-        roomId = (raw["room"] as? JsonPrimitive)?.intOrNull,
-        freeTypeLabel = (raw["type"] as? JsonPrimitive)?.let { if (!it.isString) null else it.content },
-    )
+    private fun commonFieldsOf(raw: JsonObject): CommonFields =
+        CommonFields(
+            id = (raw.getValue("id") as JsonPrimitive).int,
+            name = (raw["name"] as? JsonPrimitive)?.content.orEmpty(),
+            description = (raw["description"] as? JsonPrimitive)?.content,
+            enabled = (raw["enabled"] as? JsonPrimitive)?.boolean ?: true,
+            online = (raw["online"] as? JsonPrimitive)?.boolean ?: true,
+            roomId = (raw["room"] as? JsonPrimitive)?.intOrNull,
+            freeTypeLabel = (raw["type"] as? JsonPrimitive)?.let { if (!it.isString) null else it.content },
+        )
 }

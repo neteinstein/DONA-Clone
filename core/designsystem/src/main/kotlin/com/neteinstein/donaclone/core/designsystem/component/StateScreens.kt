@@ -36,9 +36,10 @@ fun EmptyState(
     icon: ImageVector? = null,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(PaddingValues(32.dp)),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(PaddingValues(32.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -66,9 +67,10 @@ fun ErrorState(
     onRetry: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -79,7 +81,8 @@ fun ErrorState(
             textAlign = TextAlign.Center,
         )
         if (onRetry != null) {
-            androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 16.dp))
+            androidx.compose.foundation.layout
+                .Spacer(Modifier.padding(top = 16.dp))
             Button(onClick = onRetry) {
                 Text("Retry")
             }

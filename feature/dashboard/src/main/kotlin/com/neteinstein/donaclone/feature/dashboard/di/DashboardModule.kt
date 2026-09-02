@@ -4,6 +4,7 @@ import com.neteinstein.donaclone.feature.dashboard.DashboardViewModel
 import org.koin.androidx.viewmodel.dsl.viewModelOf
 import org.koin.dsl.module
 
-val dashboardModule = module {
-    viewModelOf(::DashboardViewModel)
-}
+val dashboardModule =
+    module {
+        viewModelOf(::DashboardViewModel)
+    }

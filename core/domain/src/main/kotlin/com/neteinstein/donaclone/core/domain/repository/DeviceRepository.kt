@@ -9,8 +9,11 @@ import kotlinx.coroutines.flow.Flow
 
 interface DeviceRepository {
     suspend fun getRooms(): DonaResult<List<Division>>
+
     suspend fun getOutputDevices(): DonaResult<List<Device>>
+
     suspend fun getInputDevices(): DonaResult<List<Device>>
+
     suspend fun sendCommand(command: DeviceCommand): DonaResult<Unit>
 
     /** Live device-state pushes from the hub (best-effort parsed, envelope unconfirmed §8). */

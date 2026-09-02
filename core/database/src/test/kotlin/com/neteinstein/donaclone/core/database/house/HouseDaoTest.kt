@@ -15,15 +15,16 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class HouseDaoTest {
-
     private lateinit var database: DonaDatabase
     private lateinit var dao: HouseDao
 
     @Before
     fun createDatabase() {
-        database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), DonaDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), DonaDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
         dao = database.houseDao()
     }
 
@@ -32,46 +33,50 @@ class HouseDaoTest {
         database.close()
     }
 
-    private fun sampleHouse(name: String = "My House") = HouseEntity(
-        name = name,
-        dns = "myhouse.example.com",
-        secureDns = true,
-        localIp = "192.168.1.50",
-        secureLocalIp = false,
-        username = "alice",
-        password = "hunter2",
-        stayConnected = true,
-        notificationId = null,
-        codeOnDisarmAlarm = false,
-    )
+    private fun sampleHouse(name: String = "My House") =
+        HouseEntity(
+            name = name,
+            dns = "myhouse.example.com",
+            secureDns = true,
+            localIp = "192.168.1.50",
+            secureLocalIp = false,
+            username = "alice",
+            password = "hunter2",
+            stayConnected = true,
+            notificationId = null,
+            codeOnDisarmAlarm = false,
+        )
 
     @Test
-    fun `upsert then findByName returns the stored house`() = runBlocking {
-        dao.upsert(sampleHouse())
+    fun `upsert then findByName returns the stored house`() =
+        runBlocking {
+            dao.upsert(sampleHouse())
 
-        val found = dao.findByName("My House")
+            val found = dao.findByName("My House")
 
-        assertEquals("myhouse.example.com", found?.dns)
-        assertEquals("192.168.1.50", found?.localIp)
-    }
-
-    @Test
-    fun `upsert replaces an existing house with the same name`() = runBlocking {
-        dao.upsert(sampleHouse())
-        dao.upsert(sampleHouse().copy(localIp = "192.168.1.99"))
-
-        val found = dao.findByName("My House")
-
-        assertEquals("192.168.1.99", found?.localIp)
-        assertEquals(1, dao.observeAll().first().size)
-    }
+            assertEquals("myhouse.example.com", found?.dns)
+            assertEquals("192.168.1.50", found?.localIp)
+        }
 
     @Test
-    fun `deleteByName removes the house`() = runBlocking {
-        dao.upsert(sampleHouse())
+    fun `upsert replaces an existing house with the same name`() =
+        runBlocking {
+            dao.upsert(sampleHouse())
+            dao.upsert(sampleHouse().copy(localIp = "192.168.1.99"))
 
-        dao.deleteByName("My House")
+            val found = dao.findByName("My House")
 
-        assertNull(dao.findByName("My House"))
-    }
+            assertEquals("192.168.1.99", found?.localIp)
+            assertEquals(1, dao.observeAll().first().size)
+        }
+
+    @Test
+    fun `deleteByName removes the house`() =
+        runBlocking {
+            dao.upsert(sampleHouse())
+
+            dao.deleteByName("My House")
+
+            assertNull(dao.findByName("My House"))
+        }
 }

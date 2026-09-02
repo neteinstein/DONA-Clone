@@ -22,7 +22,6 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
     private val getCurrentSession = mockk<GetCurrentSessionUseCase>()
     private val logout = mockk<LogoutUseCase>()
@@ -47,16 +46,17 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `logout marks the state as logged out`() = runTest(dispatcher) {
-        every { getCurrentSession() } returns null
-        coEvery { logout.invoke() } just Runs
-        val viewModel = SettingsViewModel(getCurrentSession, logout)
+    fun `logout marks the state as logged out`() =
+        runTest(dispatcher) {
+            every { getCurrentSession() } returns null
+            coEvery { logout.invoke() } just Runs
+            val viewModel = SettingsViewModel(getCurrentSession, logout)
 
-        viewModel.uiState.test {
-            expectMostRecentItem()
-            viewModel.logout()
-            val loggedOut = awaitItem()
-            assertEquals(true, loggedOut.loggedOut)
+            viewModel.uiState.test {
+                expectMostRecentItem()
+                viewModel.logout()
+                val loggedOut = awaitItem()
+                assertEquals(true, loggedOut.loggedOut)
+            }
         }
-    }
 }

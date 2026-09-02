@@ -67,9 +67,10 @@ fun SettingsScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
         ) {
             ListItem(
                 headlineContent = { Text(uiState.houseName.ifBlank { "No house selected" }) },
@@ -79,9 +80,10 @@ fun SettingsScreen(
             ListItem(
                 headlineContent = { Text("Manage houses") },
                 supportingContent = { Text("Add, edit or remove connection profiles") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onManageHouses),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onManageHouses),
             )
             ListItem(
                 headlineContent = { Text("Log out", color = MaterialTheme.colorScheme.error) },
@@ -92,10 +94,11 @@ fun SettingsScreen(
                         tint = MaterialTheme.colorScheme.error,
                     )
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .clickable(onClick = onLogout),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .clickable(onClick = onLogout),
             )
         }
     }

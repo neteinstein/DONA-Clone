@@ -40,11 +40,12 @@ fun SceneCard(
     modifier: Modifier = Modifier,
 ) {
     val containerColor by animateColorAsState(
-        targetValue = if (isPlaying) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        },
+        targetValue =
+            if (isPlaying) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
         label = "scene-card-color",
     )
 
@@ -57,24 +58,27 @@ fun SceneCard(
     )
 
     Card(
-        modifier = modifier
-            .aspectRatio(1f)
-            .clickable(onClick = onClick),
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(36.dp)
-                    .scale(if (isPlaying) iconScale else 1f),
+                modifier =
+                    Modifier
+                        .size(36.dp)
+                        .scale(if (isPlaying) iconScale else 1f),
             )
             Text(
                 text = name,

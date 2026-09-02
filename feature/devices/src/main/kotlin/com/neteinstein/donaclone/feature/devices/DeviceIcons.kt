@@ -36,19 +36,21 @@ fun iconFor(device: Device): ImageVector {
         "temperature" in label -> Icons.Filled.Thermostat
         "meter" in label -> Icons.Filled.Bolt
         label.isNotBlank() -> Icons.Filled.Sensors
-        else -> when (device) {
-            is Device.BinaryOutput -> Icons.Filled.Power
-            is Device.Dimmer -> Icons.Filled.WbSunny
-            is Device.Shutter -> Icons.Filled.VerticalAlignCenter
-            is Device.Pulse -> when (device.kind) {
-                PulseKind.SIREN -> Icons.Filled.NotificationsActive
-                PulseKind.CHIME -> Icons.Filled.Notifications
-                PulseKind.LOCK -> Icons.Filled.Lock
-                else -> Icons.Filled.Bolt
+        else ->
+            when (device) {
+                is Device.BinaryOutput -> Icons.Filled.Power
+                is Device.Dimmer -> Icons.Filled.WbSunny
+                is Device.Shutter -> Icons.Filled.VerticalAlignCenter
+                is Device.Pulse ->
+                    when (device.kind) {
+                        PulseKind.SIREN -> Icons.Filled.NotificationsActive
+                        PulseKind.CHIME -> Icons.Filled.Notifications
+                        PulseKind.LOCK -> Icons.Filled.Lock
+                        else -> Icons.Filled.Bolt
+                    }
+                is Device.BinaryInput -> Icons.Filled.Sensors
+                is Device.AnalogInput, is Device.Counter -> Icons.Filled.TrendingUp
+                is Device.UnknownDevice -> Icons.Filled.DeviceUnknown
             }
-            is Device.BinaryInput -> Icons.Filled.Sensors
-            is Device.AnalogInput, is Device.Counter -> Icons.Filled.TrendingUp
-            is Device.UnknownDevice -> Icons.Filled.DeviceUnknown
-        }
     }
 }

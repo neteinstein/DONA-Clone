@@ -9,17 +9,18 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import org.koin.dsl.module
 
-val networkModule = module {
-    single {
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-            coerceInputValues = true
-            explicitNulls = false
+val networkModule =
+    module {
+        single {
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                coerceInputValues = true
+                explicitNulls = false
+            }
         }
+        single<OkHttpClient> { DomotalkSocket.defaultOkHttpClient() }
+        single { DomotalkSocket(okHttpClient = get(), json = get()) }
+        single<DomotalkApi> { DomotalkApiImpl(socket = get(), json = get()) }
+        single<DiscoveryClient> { UdpDiscoveryClient() }
     }
-    single<OkHttpClient> { DomotalkSocket.defaultOkHttpClient() }
-    single { DomotalkSocket(okHttpClient = get(), json = get()) }
-    single<DomotalkApi> { DomotalkApiImpl(socket = get(), json = get()) }
-    single<DiscoveryClient> { UdpDiscoveryClient() }
-}

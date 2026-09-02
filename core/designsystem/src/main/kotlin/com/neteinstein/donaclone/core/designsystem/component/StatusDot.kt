@@ -19,23 +19,28 @@ import com.neteinstein.donaclone.core.designsystem.theme.DonaGreenOnline
 
 /** A small colored dot that gently pulses while [online] is true, to draw the eye to live state. */
 @Composable
-fun StatusDot(online: Boolean, modifier: Modifier = Modifier) {
+fun StatusDot(
+    online: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val transition = rememberInfiniteTransition(label = "status-dot-pulse")
     val alpha by transition.animateFloat(
         initialValue = 1f,
         targetValue = if (online) 0.4f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200),
-            repeatMode = RepeatMode.Reverse,
-        ),
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 1200),
+                repeatMode = RepeatMode.Reverse,
+            ),
         label = "status-dot-alpha",
     )
 
     Box(
-        modifier = modifier
-            .size(10.dp)
-            .clip(CircleShape)
-            .alpha(if (online) alpha else 1f)
-            .background(if (online) DonaGreenOnline else DonaGrayOffline),
+        modifier =
+            modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .alpha(if (online) alpha else 1f)
+                .background(if (online) DonaGreenOnline else DonaGrayOffline),
     )
 }

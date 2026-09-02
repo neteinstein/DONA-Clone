@@ -26,7 +26,6 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DevicesViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
 
     private val getRooms = mockk<GetRoomsUseCase>()
@@ -53,29 +52,31 @@ class DevicesViewModelTest {
     private fun createViewModel() = DevicesViewModel(getRooms, getDevices, sendCommand, observeDeviceUpdates)
 
     @Test
-    fun `a live update flips the cached device state`() = runTest(dispatcher) {
-        val viewModel = createViewModel()
+    fun `a live update flips the cached device state`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
 
-        viewModel.uiState.test {
-            val loaded = expectMostRecentItem()
-            assertEquals(false, (loaded.devices.first() as Device.BinaryOutput).isOn)
+            viewModel.uiState.test {
+                val loaded = expectMostRecentItem()
+                assertEquals(false, (loaded.devices.first() as Device.BinaryOutput).isOn)
 
-            updates.emit(DeviceUpdate.BinaryStatus(deviceId = 1, isOn = true))
+                updates.emit(DeviceUpdate.BinaryStatus(deviceId = 1, isOn = true))
 
-            val updated = awaitItem()
-            assertEquals(true, (updated.devices.first() as Device.BinaryOutput).isOn)
+                val updated = awaitItem()
+                assertEquals(true, (updated.devices.first() as Device.BinaryOutput).isOn)
+            }
         }
-    }
 
     @Test
-    fun `toggling a binary output sends the opposite of its current state`() = runTest(dispatcher) {
-        coEvery { sendCommand(DeviceCommand.SetBinaryOutput(1, true)) } returns DonaResult.Success(Unit)
-        val viewModel = createViewModel()
-        dispatcher.scheduler.advanceUntilIdle()
+    fun `toggling a binary output sends the opposite of its current state`() =
+        runTest(dispatcher) {
+            coEvery { sendCommand(DeviceCommand.SetBinaryOutput(1, true)) } returns DonaResult.Success(Unit)
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.toggleBinaryOutput(light)
-        dispatcher.scheduler.advanceUntilIdle()
+            viewModel.toggleBinaryOutput(light)
+            dispatcher.scheduler.advanceUntilIdle()
 
-        coVerify { sendCommand(DeviceCommand.SetBinaryOutput(1, true)) }
-    }
+            coVerify { sendCommand(DeviceCommand.SetBinaryOutput(1, true)) }
+        }
 }

@@ -4,7 +4,9 @@ package com.neteinstein.donaclone.core.model
  * Numeric device-type codes as returned by the DPU for `deviceOut`/`deviceIn` reads.
  * Confirmed from the decompiled `q4.e` enum.
  */
-enum class DpuDeviceCode(val wireValue: Int) {
+enum class DpuDeviceCode(
+    val wireValue: Int,
+) {
     BINARY_IN(10),
     ANALOG(20),
     COUNTER(30),
@@ -24,7 +26,9 @@ enum class DpuDeviceCode(val wireValue: Int) {
 }
 
 /** Momentary-output subtype, confirmed from `t4.d`/`p4.h`'s icon-mapping switch. */
-enum class PulseKind(val wireValue: Int) {
+enum class PulseKind(
+    val wireValue: Int,
+) {
     SIREN(10),
     CHIME(11),
     LOCK(20),
@@ -55,7 +59,6 @@ interface DeviceCommon {
 }
 
 sealed class Device : DeviceCommon {
-
     data class BinaryOutput(
         override val id: Int,
         override val name: String,
@@ -149,10 +152,30 @@ sealed class Device : DeviceCommon {
 
 /** Actions that can be sent for a device, per the confirmed `verb: action` semantics. */
 sealed interface DeviceCommand {
-    data class SetBinaryOutput(val deviceId: Int, val turnOn: Boolean) : DeviceCommand
-    data class FirePulse(val deviceId: Int) : DeviceCommand
-    data class SetShutterOpen(val deviceId: Int) : DeviceCommand
-    data class SetShutterClosed(val deviceId: Int) : DeviceCommand
-    data class SetShutterPercentage(val deviceId: Int, val percentage: Int) : DeviceCommand
-    data class SetDimmerPercentage(val deviceId: Int, val percentage: Int) : DeviceCommand
+    data class SetBinaryOutput(
+        val deviceId: Int,
+        val turnOn: Boolean,
+    ) : DeviceCommand
+
+    data class FirePulse(
+        val deviceId: Int,
+    ) : DeviceCommand
+
+    data class SetShutterOpen(
+        val deviceId: Int,
+    ) : DeviceCommand
+
+    data class SetShutterClosed(
+        val deviceId: Int,
+    ) : DeviceCommand
+
+    data class SetShutterPercentage(
+        val deviceId: Int,
+        val percentage: Int,
+    ) : DeviceCommand
+
+    data class SetDimmerPercentage(
+        val deviceId: Int,
+        val percentage: Int,
+    ) : DeviceCommand
 }

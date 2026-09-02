@@ -32,7 +32,6 @@ class DevicesViewModel(
     private val sendCommand: SendDeviceCommandUseCase,
     observeDeviceUpdates: ObserveDeviceUpdatesUseCase,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(DevicesUiState())
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
 
@@ -72,10 +71,16 @@ class DevicesViewModel(
 
     fun closeShutter(device: Device.Shutter) = execute(DeviceCommand.SetShutterClosed(device.id))
 
-    fun setShutterPercentage(device: Device.Shutter, percentage: Int) =
+    fun setShutterPercentage(
+        device: Device.Shutter,
+        percentage: Int,
+    ) =
         execute(DeviceCommand.SetShutterPercentage(device.id, percentage))
 
-    fun setDimmerPercentage(device: Device.Dimmer, percentage: Int) =
+    fun setDimmerPercentage(
+        device: Device.Dimmer,
+        percentage: Int,
+    ) =
         execute(DeviceCommand.SetDimmerPercentage(device.id, percentage))
 
     private fun execute(command: DeviceCommand) {

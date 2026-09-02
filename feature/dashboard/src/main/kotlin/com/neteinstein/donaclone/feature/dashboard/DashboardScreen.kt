@@ -36,7 +36,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
 
-data class DashboardDestination(val title: String, val icon: ImageVector, val onClick: () -> Unit)
+data class DashboardDestination(
+    val title: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
 
 @Composable
 fun DashboardRoute(
@@ -55,11 +59,12 @@ fun DashboardRoute(
 
     DashboardScreen(
         uiState = uiState,
-        destinations = listOf(
-            DashboardDestination("Rooms & Devices", Icons.Filled.Lightbulb, onOpenDevices),
-            DashboardDestination("Scenarios", Icons.Filled.PlayCircle, onOpenAmbiences),
-            DashboardDestination("Settings", Icons.Filled.Settings, onOpenSettings),
-        ),
+        destinations =
+            listOf(
+                DashboardDestination("Rooms & Devices", Icons.Filled.Lightbulb, onOpenDevices),
+                DashboardDestination("Scenarios", Icons.Filled.PlayCircle, onOpenAmbiences),
+                DashboardDestination("Settings", Icons.Filled.Settings, onOpenSettings),
+            ),
         onLogout = viewModel::logout,
     )
 }
@@ -96,12 +101,15 @@ fun DashboardScreen(
     ) { padding ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            contentPadding =
+                androidx.compose.foundation.layout
+                    .PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
         ) {
             items(destinations) { destination ->
                 DashboardCard(destination)
@@ -113,16 +121,18 @@ fun DashboardScreen(
 @Composable
 private fun DashboardCard(destination: DashboardDestination) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         onClick = destination.onClick,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

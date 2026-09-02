@@ -9,9 +9,20 @@ package com.neteinstein.donaclone.core.model
 sealed interface DeviceUpdate {
     val deviceId: Int
 
-    data class BinaryStatus(override val deviceId: Int, val isOn: Boolean) : DeviceUpdate
-    data class Percentage(override val deviceId: Int, val percentage: Int) : DeviceUpdate
-    data class NumericValue(override val deviceId: Int, val value: Double) : DeviceUpdate
+    data class BinaryStatus(
+        override val deviceId: Int,
+        val isOn: Boolean,
+    ) : DeviceUpdate
+
+    data class Percentage(
+        override val deviceId: Int,
+        val percentage: Int,
+    ) : DeviceUpdate
+
+    data class NumericValue(
+        override val deviceId: Int,
+        val value: Double,
+    ) : DeviceUpdate
 }
 
 data class MasterLogEntry(

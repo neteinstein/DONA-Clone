@@ -13,7 +13,6 @@ class HouseRepositoryImpl(
     private val houseDao: HouseDao,
     private val sessionPreferences: SessionPreferences,
 ) : HouseRepository {
-
     override fun observeHouses(): Flow<List<House>> = houseDao.observeAll().map { list -> list.map { it.toDomain() } }
 
     override suspend fun getHouse(name: String): House? = houseDao.findByName(name)?.toDomain()

@@ -87,9 +87,10 @@ fun LoginScreen(
             )
             Button(
                 onClick = onManageHouses,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
             ) {
                 Text("Add a house")
             }
@@ -98,11 +99,12 @@ fun LoginScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .imePadding()
-            .padding(24.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(24.dp),
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
@@ -155,9 +157,10 @@ fun LoginScreen(
         Button(
             onClick = onLoginClick,
             enabled = !uiState.isLoading,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
@@ -168,9 +171,10 @@ fun LoginScreen(
 
         TextButton(
             onClick = onManageHouses,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
         ) {
             Text("Manage houses")
         }
@@ -193,9 +197,10 @@ private fun HouseDropdown(
             label = { Text("House") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             leadingIcon = { Icon(Icons.Filled.Home, contentDescription = null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             houses.forEach { house ->

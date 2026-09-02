@@ -32,10 +32,14 @@ class LogoutUseCase(
     }
 }
 
-class ObserveSessionStateUseCase(private val repository: AuthRepository) {
+class ObserveSessionStateUseCase(
+    private val repository: AuthRepository,
+) {
     operator fun invoke(): StateFlow<SessionStatus> = repository.sessionState
 }
 
-class GetCurrentSessionUseCase(private val repository: AuthRepository) {
+class GetCurrentSessionUseCase(
+    private val repository: AuthRepository,
+) {
     operator fun invoke(): AuthSession? = repository.currentSession
 }

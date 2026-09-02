@@ -20,11 +20,11 @@ class SettingsViewModel(
     getCurrentSession: GetCurrentSessionUseCase,
     private val logout: LogoutUseCase,
 ) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(
-        getCurrentSession()?.let { SettingsUiState(houseName = it.houseName, userName = it.userName) }
-            ?: SettingsUiState(),
-    )
+    private val _uiState =
+        MutableStateFlow(
+            getCurrentSession()?.let { SettingsUiState(houseName = it.houseName, userName = it.userName) }
+                ?: SettingsUiState(),
+        )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     fun logout() {

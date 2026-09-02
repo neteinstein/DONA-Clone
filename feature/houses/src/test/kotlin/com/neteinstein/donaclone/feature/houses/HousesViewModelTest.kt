@@ -25,7 +25,6 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HousesViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
 
     private val observeHouses = mockk<ObserveHousesUseCase>()
@@ -47,54 +46,58 @@ class HousesViewModelTest {
     private fun createViewModel() = HousesViewModel(observeHouses, saveHouse, deleteHouse, discoverHouses)
 
     @Test
-    fun `applying a discovered house fills in the local IP`() = runTest(dispatcher) {
-        coEvery { discoverHouses() } returns flowOf(
-            DiscoveredHouse(
-                mac = "AA:BB",
-                ip = "192.168.1.77",
-                gateway = null,
-                subnetMask = null,
-                dhcp = true,
-                hubType = HubType.DPU,
-                serialNumber = "SN1",
-                hardwareVersion = "1.0",
-                firmwareVersion = "1.4",
-            ),
-        )
-        val viewModel = createViewModel()
+    fun `applying a discovered house fills in the local IP`() =
+        runTest(dispatcher) {
+            coEvery { discoverHouses() } returns
+                flowOf(
+                    DiscoveredHouse(
+                        mac = "AA:BB",
+                        ip = "192.168.1.77",
+                        gateway = null,
+                        subnetMask = null,
+                        dhcp = true,
+                        hubType = HubType.DPU,
+                        serialNumber = "SN1",
+                        hardwareVersion = "1.0",
+                        firmwareVersion = "1.4",
+                    ),
+                )
+            val viewModel = createViewModel()
 
-        viewModel.startAddingHouse()
-        viewModel.uiState.test {
-            val state = expectMostRecentItem()
-            val editing = state.mode as HousesMode.Editing
-            assertEquals("192.168.1.77", editing.draft.localIp)
+            viewModel.startAddingHouse()
+            viewModel.uiState.test {
+                val state = expectMostRecentItem()
+                val editing = state.mode as HousesMode.Editing
+                assertEquals("192.168.1.77", editing.draft.localIp)
+            }
         }
-    }
 
     @Test
-    fun `saving a draft persists it and returns to the list`() = runTest(dispatcher) {
-        coEvery { discoverHouses() } returns flowOf()
-        val viewModel = createViewModel()
+    fun `saving a draft persists it and returns to the list`() =
+        runTest(dispatcher) {
+            coEvery { discoverHouses() } returns flowOf()
+            val viewModel = createViewModel()
 
-        viewModel.startAddingHouse()
-        viewModel.updateDraft { it.copy(name = "My Home", localIp = "10.0.0.5") }
-        viewModel.saveDraft()
+            viewModel.startAddingHouse()
+            viewModel.updateDraft { it.copy(name = "My Home", localIp = "10.0.0.5") }
+            viewModel.saveDraft()
 
-        viewModel.uiState.test {
-            val state = expectMostRecentItem()
-            assertEquals(HousesMode.List, state.mode)
+            viewModel.uiState.test {
+                val state = expectMostRecentItem()
+                assertEquals(HousesMode.List, state.mode)
+            }
+            coVerify { saveHouse(House(name = "My Home", localIp = "10.0.0.5")) }
         }
-        coVerify { saveHouse(House(name = "My Home", localIp = "10.0.0.5")) }
-    }
 
     @Test
-    fun `delete forwards to the use case`() = runTest(dispatcher) {
-        val viewModel = createViewModel()
-        val house = House(name = "Home", localIp = "10.0.0.1")
+    fun `delete forwards to the use case`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            val house = House(name = "Home", localIp = "10.0.0.1")
 
-        viewModel.delete(house)
-        dispatcher.scheduler.advanceUntilIdle()
+            viewModel.delete(house)
+            dispatcher.scheduler.advanceUntilIdle()
 
-        coVerify { deleteHouse("Home") }
-    }
+            coVerify { deleteHouse("Home") }
+        }
 }

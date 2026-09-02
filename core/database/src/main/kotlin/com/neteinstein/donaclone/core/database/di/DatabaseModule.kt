@@ -10,10 +10,11 @@ import org.koin.dsl.module
 
 private val Context.sessionDataStore by preferencesDataStore(name = "session_prefs")
 
-val databaseModule = module {
-    single {
-        Room.databaseBuilder(androidContext(), DonaDatabase::class.java, DonaDatabase.DATABASE_NAME).build()
+val databaseModule =
+    module {
+        single {
+            Room.databaseBuilder(androidContext(), DonaDatabase::class.java, DonaDatabase.DATABASE_NAME).build()
+        }
+        single { get<DonaDatabase>().houseDao() }
+        single { SessionPreferences(androidContext().sessionDataStore) }
     }
-    single { get<DonaDatabase>().houseDao() }
-    single { SessionPreferences(androidContext().sessionDataStore) }
-}

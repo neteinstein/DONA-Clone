@@ -18,7 +18,6 @@ import org.koin.core.logger.Level
 import timber.log.Timber
 
 class DonaCloneApplication : Application() {
-
     override fun onCreate() {
         super.onCreate()
 

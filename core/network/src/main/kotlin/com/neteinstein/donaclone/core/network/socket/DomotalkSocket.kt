@@ -25,8 +25,8 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -56,52 +56,75 @@ class DomotalkSocket(
 
     @Volatile var token: String? = null
 
-    suspend fun connect(host: String, secure: Boolean, trustAllCertificates: Boolean = secure) {
+    suspend fun connect(
+        host: String,
+        secure: Boolean,
+        trustAllCertificates: Boolean = secure,
+    ) {
         _connectionState.value = ConnectionState.CONNECTING
 
         try {
             val scheme = if (secure) "wss" else "ws"
             val url = "$scheme://$host$WS_PATH"
 
-            val client = if (secure && trustAllCertificates) {
-                okHttpClient.newBuilder()
-                    .sslSocketFactory(TrustAllCerts.sslSocketFactory, TrustAllCerts.x509TrustManager)
-                    .hostnameVerifier(TrustAllCerts.hostnameVerifier)
-                    .build()
-            } else {
-                okHttpClient
-            }
+            val client =
+                if (secure && trustAllCertificates) {
+                    okHttpClient
+                        .newBuilder()
+                        .sslSocketFactory(TrustAllCerts.sslSocketFactory, TrustAllCerts.x509TrustManager)
+                        .hostnameVerifier(TrustAllCerts.hostnameVerifier)
+                        .build()
+                } else {
+                    okHttpClient
+                }
 
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Sec-WebSocket-Protocol", "$SUBPROTOCOL_DOMOTALK, $SUBPROTOCOL_PING_PONG")
-                .build()
+            val request =
+                Request
+                    .Builder()
+                    .url(url)
+                    .addHeader("Sec-WebSocket-Protocol", "$SUBPROTOCOL_DOMOTALK, $SUBPROTOCOL_PING_PONG")
+                    .build()
 
             suspendCancellableCoroutine<Unit> { continuation ->
-                val listener = object : WebSocketListener() {
-                    override fun onOpen(webSocket: WebSocket, response: Response) {
-                        _connectionState.value = ConnectionState.CONNECTED
-                        if (continuation.isActive) continuation.resume(Unit)
-                    }
+                val listener =
+                    object : WebSocketListener() {
+                        override fun onOpen(
+                            webSocket: WebSocket,
+                            response: Response,
+                        ) {
+                            _connectionState.value = ConnectionState.CONNECTED
+                            if (continuation.isActive) continuation.resume(Unit)
+                        }
 
-                    override fun onMessage(webSocket: WebSocket, text: String) {
-                        handleMessage(text)
-                    }
+                        override fun onMessage(
+                            webSocket: WebSocket,
+                            text: String,
+                        ) {
+                            handleMessage(text)
+                        }
 
-                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                        _connectionState.value = ConnectionState.DISCONNECTED
-                        if (continuation.isActive) {
-                            continuation.resumeWithException(DomotalkException.ConnectFailed(t))
-                        } else {
-                            failAllPending(DomotalkException.ConnectionLost(t))
+                        override fun onFailure(
+                            webSocket: WebSocket,
+                            t: Throwable,
+                            response: Response?,
+                        ) {
+                            _connectionState.value = ConnectionState.DISCONNECTED
+                            if (continuation.isActive) {
+                                continuation.resumeWithException(DomotalkException.ConnectFailed(t))
+                            } else {
+                                failAllPending(DomotalkException.ConnectionLost(t))
+                            }
+                        }
+
+                        override fun onClosed(
+                            webSocket: WebSocket,
+                            code: Int,
+                            reason: String,
+                        ) {
+                            _connectionState.value = ConnectionState.DISCONNECTED
+                            failAllPending(DomotalkException.ConnectionLost())
                         }
                     }
-
-                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                        _connectionState.value = ConnectionState.DISCONNECTED
-                        failAllPending(DomotalkException.ConnectionLost())
-                    }
-                }
                 webSocket = client.newWebSocket(request, listener)
                 continuation.invokeOnCancellation { webSocket?.cancel() }
             }
@@ -142,14 +165,15 @@ class DomotalkSocket(
         val deferred = CompletableDeferred<JsonObject>()
         pending[callbackId] = deferred
 
-        val payload = buildJsonObject {
-            put("verb", verb)
-            put("subject", subject)
-            options?.let { put("options", it) }
-            filters?.let { put("filters", it) }
-            token?.let { put("token", JsonPrimitive(it)) }
-            put("callback_id", callbackId)
-        }
+        val payload =
+            buildJsonObject {
+                put("verb", verb)
+                put("subject", subject)
+                options?.let { put("options", it) }
+                filters?.let { put("filters", it) }
+                token?.let { put("token", JsonPrimitive(it)) }
+                put("callback_id", callbackId)
+            }
 
         val sent = socket.send(json.encodeToString(JsonObject.serializer(), payload))
         if (!sent) {
@@ -211,8 +235,12 @@ class DomotalkSocket(
         const val CALLBACK_ID_WRAP = 10_000
         const val NORMAL_CLOSURE_CODE = 1000
 
-        fun defaultOkHttpClient(pingIntervalMillis: Long = 2000L, connectTimeoutMillis: Long = 15_000L): OkHttpClient =
-            OkHttpClient.Builder()
+        fun defaultOkHttpClient(
+            pingIntervalMillis: Long = 2000L,
+            connectTimeoutMillis: Long = 15_000L,
+        ): OkHttpClient =
+            OkHttpClient
+                .Builder()
                 .pingInterval(pingIntervalMillis, TimeUnit.MILLISECONDS)
                 .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
                 .build()

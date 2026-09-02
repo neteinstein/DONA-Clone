@@ -78,24 +78,26 @@ fun HousesScreen(
     onSave: () -> Unit,
 ) {
     when (val mode = uiState.mode) {
-        HousesMode.List -> HousesListScreen(
-            houses = uiState.houses,
-            onBack = onBack,
-            onAddHouse = onAddHouse,
-            onEditHouse = onEditHouse,
-            onDeleteHouse = onDeleteHouse,
-        )
+        HousesMode.List ->
+            HousesListScreen(
+                houses = uiState.houses,
+                onBack = onBack,
+                onAddHouse = onAddHouse,
+                onEditHouse = onEditHouse,
+                onDeleteHouse = onDeleteHouse,
+            )
 
-        is HousesMode.Editing -> EditHouseScreen(
-            draft = mode.draft,
-            isNew = mode.original == null,
-            discovered = uiState.discovered,
-            isDiscovering = uiState.isDiscovering,
-            onBack = onCancelEditing,
-            onDraftChange = onDraftChange,
-            onApplyDiscovered = onApplyDiscovered,
-            onSave = onSave,
-        )
+        is HousesMode.Editing ->
+            EditHouseScreen(
+                draft = mode.draft,
+                isNew = mode.original == null,
+                discovered = uiState.discovered,
+                isDiscovering = uiState.isDiscovering,
+                onBack = onCancelEditing,
+                onDraftChange = onDraftChange,
+                onApplyDiscovered = onApplyDiscovered,
+                onSave = onSave,
+            )
     }
 }
 
@@ -178,10 +180,11 @@ private fun EditHouseScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize(),
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .padding(16.dp)
+                    .fillMaxSize(),
         ) {
             OutlinedTextField(
                 value = draft.name,
@@ -197,9 +200,10 @@ private fun EditHouseScreen(
                 Spacer(Modifier.height(4.dp))
                 discovered.forEach { found ->
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
                     ) {
                         ListItem(
                             headlineContent = { Text(found.ip) },
@@ -264,7 +268,9 @@ private fun EditHouseScreen(
                 onValueChange = { value -> onDraftChange { it.copy(password = value) } },
                 label = { Text("Password") },
                 singleLine = true,
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                visualTransformation =
+                    androidx.compose.ui.text.input
+                        .PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(24.dp))

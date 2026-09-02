@@ -22,30 +22,66 @@ import kotlinx.serialization.json.decodeFromJsonElement
  * A device paired with the exact raw JSON it was read as — needed to send actions later, since
  * the hub expects the full device object back with the changed field(s) updated (§4).
  */
-data class DeviceSnapshot(val device: Device, val raw: JsonObject)
+data class DeviceSnapshot(
+    val device: Device,
+    val raw: JsonObject,
+)
 
 /** Same idea as [DeviceSnapshot]: an ambience carries opaque trigger/condition fields (§3.2)
  * that this client doesn't model, so we must round-trip the raw object rather than
  * reconstructing one from [AmbienceDto] alone when sending an action/update. */
-data class AmbienceSnapshot(val ambience: AmbienceDto, val raw: JsonObject)
+data class AmbienceSnapshot(
+    val ambience: AmbienceDto,
+    val raw: JsonObject,
+)
 
 interface DomotalkApi {
     suspend fun readUsers(): List<UserDto>
-    suspend fun createSession(userId: Int, md5Password: String): String
+
+    suspend fun createSession(
+        userId: Int,
+        md5Password: String,
+    ): String
+
     suspend fun resumeSession(token: String)
+
     suspend fun logout()
 
     suspend fun readRooms(): List<DivisionDto>
+
     suspend fun readDeviceOut(): List<DeviceSnapshot>
+
     suspend fun readDeviceIn(): List<DeviceSnapshot>
+
     suspend fun readAmbiences(): List<AmbienceSnapshot>
 
-    suspend fun sendBinaryOutputAction(raw: JsonObject, turnOn: Boolean)
+    suspend fun sendBinaryOutputAction(
+        raw: JsonObject,
+        turnOn: Boolean,
+    )
+
     suspend fun sendPulseAction(raw: JsonObject)
-    suspend fun sendShutterOpenClose(raw: JsonObject, open: Boolean)
-    suspend fun sendShutterPercentage(raw: JsonObject, percentage: Int)
-    suspend fun sendDimmerPercentage(raw: JsonObject, percentage: Int)
-    suspend fun sendAmbienceAction(raw: JsonObject, run: Boolean)
+
+    suspend fun sendShutterOpenClose(
+        raw: JsonObject,
+        open: Boolean,
+    )
+
+    suspend fun sendShutterPercentage(
+        raw: JsonObject,
+        percentage: Int,
+    )
+
+    suspend fun sendDimmerPercentage(
+        raw: JsonObject,
+        percentage: Int,
+    )
+
+    suspend fun sendAmbienceAction(
+        raw: JsonObject,
+        run: Boolean,
+    )
+
     suspend fun updateAmbience(raw: JsonObject)
 
     /** Raw unsolicited push messages; a higher layer interprets them (envelope unconfirmed, §8). */
@@ -56,15 +92,18 @@ class DomotalkApiImpl(
     private val socket: DomotalkSocket,
     private val json: Json,
 ) : DomotalkApi {
-
     override suspend fun readUsers(): List<UserDto> = decodeList(socket.request("read", "user"), UserDto.serializer())
 
-    override suspend fun createSession(userId: Int, md5Password: String): String {
-        val options = buildJsonObject {
-            put("userId", userId)
-            put("password", md5Password)
-            put("forever", true)
-        }
+    override suspend fun createSession(
+        userId: Int,
+        md5Password: String,
+    ): String {
+        val options =
+            buildJsonObject {
+                put("userId", userId)
+                put("password", md5Password)
+                put("forever", true)
+            }
         val element = socket.request("create", "session", options)
         val session = json.decodeFromJsonElement(SessionDto.serializer(), element)
         socket.token = session.token
@@ -99,7 +138,10 @@ class DomotalkApiImpl(
             AmbienceSnapshot(json.decodeFromJsonElement(AmbienceDto.serializer(), raw), raw)
         }
 
-    override suspend fun sendBinaryOutputAction(raw: JsonObject, turnOn: Boolean) {
+    override suspend fun sendBinaryOutputAction(
+        raw: JsonObject,
+        turnOn: Boolean,
+    ) {
         val action = if (turnOn) 1 else 0
         socket.request("action", "binaryOut", DeviceJsonMapper.buildActionOptions(raw, action))
     }
@@ -108,12 +150,18 @@ class DomotalkApiImpl(
         socket.request("action", "pulse", DeviceJsonMapper.buildActionOptions(raw, action = 0))
     }
 
-    override suspend fun sendShutterOpenClose(raw: JsonObject, open: Boolean) {
+    override suspend fun sendShutterOpenClose(
+        raw: JsonObject,
+        open: Boolean,
+    ) {
         val action = if (open) 1 else 0
         socket.request("action", "shutter", DeviceJsonMapper.buildActionOptions(raw, action))
     }
 
-    override suspend fun sendShutterPercentage(raw: JsonObject, percentage: Int) {
+    override suspend fun sendShutterPercentage(
+        raw: JsonObject,
+        percentage: Int,
+    ) {
         socket.request(
             "action",
             "shutter",
@@ -121,7 +169,10 @@ class DomotalkApiImpl(
         )
     }
 
-    override suspend fun sendDimmerPercentage(raw: JsonObject, percentage: Int) {
+    override suspend fun sendDimmerPercentage(
+        raw: JsonObject,
+        percentage: Int,
+    ) {
         socket.request(
             "action",
             "dimmer",
@@ -129,7 +180,10 @@ class DomotalkApiImpl(
         )
     }
 
-    override suspend fun sendAmbienceAction(raw: JsonObject, run: Boolean) {
+    override suspend fun sendAmbienceAction(
+        raw: JsonObject,
+        run: Boolean,
+    ) {
         val action = if (run) 1 else 0
         socket.request("action", "ambience", DeviceJsonMapper.buildActionOptions(raw, action))
     }
@@ -140,7 +194,10 @@ class DomotalkApiImpl(
 
     override fun observeUpdates(): Flow<JsonObject> = socket.updates
 
-    private fun <T> decodeList(element: JsonElement, serializer: KSerializer<T>): List<T> {
+    private fun <T> decodeList(
+        element: JsonElement,
+        serializer: KSerializer<T>,
+    ): List<T> {
         val array = element as? JsonArray ?: throw DomotalkException.MalformedResponse("Expected a JSON array")
         return json.decodeFromJsonElement(ListSerializer(serializer), array)
     }

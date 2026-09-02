@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.map
  * here (the original app doesn't persist it either, see protocol notes §2.3) — only the house
  * name, credentials for which live in Room and get re-sent through a fresh login each launch.
  */
-class SessionPreferences(private val dataStore: DataStore<Preferences>) {
-
+class SessionPreferences(
+    private val dataStore: DataStore<Preferences>,
+) {
     val activeHouseName: Flow<String?> = dataStore.data.map { it[ACTIVE_HOUSE_NAME_KEY] }
 
     suspend fun setActiveHouseName(name: String?) {

@@ -21,7 +21,6 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AmbiencesViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
     private val getAmbiences = mockk<GetAmbiencesUseCase>()
     private val triggerAmbience = mockk<TriggerAmbienceUseCase>()
@@ -42,30 +41,32 @@ class AmbiencesViewModelTest {
     private fun createViewModel() = AmbiencesViewModel(getAmbiences, triggerAmbience)
 
     @Test
-    fun `toggling optimistically flips isPlaying immediately`() = runTest(dispatcher) {
-        coEvery { triggerAmbience(movieNight) } returns DonaResult.Success(Unit)
-        val viewModel = createViewModel()
+    fun `toggling optimistically flips isPlaying immediately`() =
+        runTest(dispatcher) {
+            coEvery { triggerAmbience(movieNight) } returns DonaResult.Success(Unit)
+            val viewModel = createViewModel()
 
-        viewModel.uiState.test {
-            expectMostRecentItem()
-            viewModel.toggle(movieNight)
-            val optimistic = awaitItem()
-            assertEquals(true, optimistic.ambiences.first().isPlaying)
+            viewModel.uiState.test {
+                expectMostRecentItem()
+                viewModel.toggle(movieNight)
+                val optimistic = awaitItem()
+                assertEquals(true, optimistic.ambiences.first().isPlaying)
+            }
         }
-    }
 
     @Test
-    fun `a failed trigger rolls back the optimistic update`() = runTest(dispatcher) {
-        coEvery { triggerAmbience(movieNight) } returns DonaResult.Error(DonaFailure.Unreachable("offline"))
-        val viewModel = createViewModel()
+    fun `a failed trigger rolls back the optimistic update`() =
+        runTest(dispatcher) {
+            coEvery { triggerAmbience(movieNight) } returns DonaResult.Error(DonaFailure.Unreachable("offline"))
+            val viewModel = createViewModel()
 
-        viewModel.uiState.test {
-            expectMostRecentItem()
-            viewModel.toggle(movieNight)
-            awaitItem() // optimistic flip
-            val rolledBack = awaitItem()
-            assertEquals(false, rolledBack.ambiences.first().isPlaying)
-            assertEquals("offline", rolledBack.errorMessage)
+            viewModel.uiState.test {
+                expectMostRecentItem()
+                viewModel.toggle(movieNight)
+                awaitItem() // optimistic flip
+                val rolledBack = awaitItem()
+                assertEquals(false, rolledBack.ambiences.first().isPlaying)
+                assertEquals("offline", rolledBack.errorMessage)
+            }
         }
-    }
 }

@@ -84,16 +84,17 @@ fun DevicesScreen(
                 ErrorState(message = uiState.errorMessage, onRetry = onRefresh, modifier = Modifier.padding(padding))
             uiState.devices.isEmpty() ->
                 EmptyState(message = "No devices found on this hub yet.", modifier = Modifier.padding(padding))
-            else -> DeviceList(
-                uiState = uiState,
-                modifier = Modifier.padding(padding),
-                onToggleBinaryOutput = onToggleBinaryOutput,
-                onFirePulse = onFirePulse,
-                onOpenShutter = onOpenShutter,
-                onCloseShutter = onCloseShutter,
-                onShutterPercentage = onShutterPercentage,
-                onDimmerPercentage = onDimmerPercentage,
-            )
+            else ->
+                DeviceList(
+                    uiState = uiState,
+                    modifier = Modifier.padding(padding),
+                    onToggleBinaryOutput = onToggleBinaryOutput,
+                    onFirePulse = onFirePulse,
+                    onOpenShutter = onOpenShutter,
+                    onCloseShutter = onCloseShutter,
+                    onShutterPercentage = onShutterPercentage,
+                    onDimmerPercentage = onDimmerPercentage,
+                )
         }
     }
 }
@@ -113,8 +114,12 @@ private fun DeviceList(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+        contentPadding =
+            androidx.compose.foundation.layout
+                .PaddingValues(16.dp),
+        verticalArrangement =
+            androidx.compose.foundation.layout.Arrangement
+                .spacedBy(12.dp),
     ) {
         uiState.devicesByRoom.forEach { (roomId, devicesInRoom) ->
             item(key = "header-$roomId") {
@@ -151,72 +156,80 @@ private fun DeviceRow(
     onDimmerPercentage: (Device.Dimmer, Int) -> Unit,
 ) {
     when (device) {
-        is Device.BinaryOutput -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-        ) {
-            BinaryOutputSwitch(isOn = device.isOn, onToggle = { onToggleBinaryOutput(device) })
-        }
+        is Device.BinaryOutput ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+            ) {
+                BinaryOutputSwitch(isOn = device.isOn, onToggle = { onToggleBinaryOutput(device) })
+            }
 
-        is Device.Pulse -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-            onClick = { onFirePulse(device) },
-        ) {
-            Icon(Icons.Filled.Refresh, contentDescription = "Trigger")
-        }
+        is Device.Pulse ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+                onClick = { onFirePulse(device) },
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = "Trigger")
+            }
 
-        is Device.Shutter -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-            subtitle = "${device.percentage}% open",
-        ) {
-            PercentageSlider(
-                percentage = device.percentage,
-                onValueChangeFinished = { onShutterPercentage(device, it) },
-            )
-        }
+        is Device.Shutter ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+                subtitle = "${device.percentage}% open",
+            ) {
+                PercentageSlider(
+                    percentage = device.percentage,
+                    onValueChangeFinished = { onShutterPercentage(device, it) },
+                )
+            }
 
-        is Device.Dimmer -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-        ) {
-            PercentageSlider(
-                percentage = device.percentage,
-                onValueChangeFinished = { onDimmerPercentage(device, it) },
-            )
-        }
+        is Device.Dimmer ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+            ) {
+                PercentageSlider(
+                    percentage = device.percentage,
+                    onValueChangeFinished = { onDimmerPercentage(device, it) },
+                )
+            }
 
-        is Device.BinaryInput -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-            subtitle = if (device.isActive) "Active" else "Idle",
-        ) {}
+        is Device.BinaryInput ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+                subtitle = if (device.isActive) "Active" else "Idle",
+            ) {}
 
-        is Device.AnalogInput -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-            subtitle = device.value.toString(),
-        ) {}
+        is Device.AnalogInput ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+                subtitle = device.value.toString(),
+            ) {}
 
-        is Device.Counter -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-            subtitle = device.value.toString(),
-        ) {}
+        is Device.Counter ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+                subtitle = device.value.toString(),
+            ) {}
 
-        is Device.UnknownDevice -> DeviceTile(
-            name = device.name,
-            icon = iconFor(device),
-            online = device.online,
-            subtitle = "Unsupported device",
-        ) {}
+        is Device.UnknownDevice ->
+            DeviceTile(
+                name = device.name,
+                icon = iconFor(device),
+                online = device.online,
+                subtitle = "Unsupported device",
+            ) {}
     }
 }

@@ -30,21 +30,3 @@ dependencies {
     kover(project(":feature:ambiences"))
     kover(project(":feature:settings"))
 }
-
-koverReport {
-    filters {
-        excludes {
-            classes(
-                "*.BuildConfig",
-                "*.databinding.*",
-                "*_Factory",
-                "*_MembersInjector",
-                "*Module_*",
-                "*Dagger*",
-                "*Koin*",
-                "*.di.*",
-            )
-            annotatedBy("androidx.compose.runtime.Composable")
-        }
-    }
-}

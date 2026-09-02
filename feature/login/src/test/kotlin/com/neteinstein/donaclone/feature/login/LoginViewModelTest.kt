@@ -53,6 +53,7 @@ class LoginViewModelTest {
     fun `houses are loaded and the first one is preselected`() =
         runTest(dispatcher) {
             val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.uiState.test {
                 val state = expectMostRecentItem()
@@ -65,6 +66,7 @@ class LoginViewModelTest {
     fun `successful login updates state and clears the error`() =
         runTest(dispatcher) {
             val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
             val session = AuthSession(token = "t", userId = 1, userName = "alice", houseName = "Home")
             coEvery { login.invoke(any()) } returns DonaResult.Success(session)
 
@@ -84,6 +86,7 @@ class LoginViewModelTest {
     fun `failed login surfaces an error message`() =
         runTest(dispatcher) {
             val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
             coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
 
             viewModel.uiState.test {

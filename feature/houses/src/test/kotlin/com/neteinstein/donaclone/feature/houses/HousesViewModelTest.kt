@@ -48,23 +48,24 @@ class HousesViewModelTest {
     @Test
     fun `applying a discovered house fills in the local IP`() =
         runTest(dispatcher) {
-            coEvery { discoverHouses() } returns
-                flowOf(
-                    DiscoveredHouse(
-                        mac = "AA:BB",
-                        ip = "192.168.1.77",
-                        gateway = null,
-                        subnetMask = null,
-                        dhcp = true,
-                        hubType = HubType.DPU,
-                        serialNumber = "SN1",
-                        hardwareVersion = "1.0",
-                        firmwareVersion = "1.4",
-                    ),
+            coEvery { discoverHouses() } returns flowOf()
+            val discovered =
+                DiscoveredHouse(
+                    mac = "AA:BB",
+                    ip = "192.168.1.77",
+                    gateway = null,
+                    subnetMask = null,
+                    dhcp = true,
+                    hubType = HubType.DPU,
+                    serialNumber = "SN1",
+                    hardwareVersion = "1.0",
+                    firmwareVersion = "1.4",
                 )
             val viewModel = createViewModel()
 
             viewModel.startAddingHouse()
+            viewModel.applyDiscoveredHouse(discovered)
+
             viewModel.uiState.test {
                 val state = expectMostRecentItem()
                 val editing = state.mode as HousesMode.Editing
@@ -81,6 +82,7 @@ class HousesViewModelTest {
             viewModel.startAddingHouse()
             viewModel.updateDraft { it.copy(name = "My Home", localIp = "10.0.0.5") }
             viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.uiState.test {
                 val state = expectMostRecentItem()

@@ -55,6 +55,7 @@ class DevicesViewModelTest {
     fun `a live update flips the cached device state`() =
         runTest(dispatcher) {
             val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.uiState.test {
                 val loaded = expectMostRecentItem()

@@ -118,12 +118,13 @@ fun AutomationEditorScreen(
         return
     }
 
-    if (uiState.saveMessage != null) {
+    val saveMessage = uiState.saveMessage
+    if (saveMessage != null) {
         AlertDialog(
             onDismissRequest = onConsumeSaveMessage,
             confirmButton = { TextButton(onClick = onConsumeSaveMessage) { Text("OK") } },
             title = { Text("Can't save yet") },
-            text = { Text(uiState.saveMessage) },
+            text = { Text(saveMessage) },
         )
     }
 

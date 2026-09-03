@@ -64,17 +64,18 @@ core/
                          together, maps DTOs -> domain models, owns the raw-JSON
                          device cache actions need (see README §4).
   designsystem/          DonaTheme (light/dark, optional dynamic color), reusable
-                         Compose components (DeviceTile, SceneCard, StatusDot, ...).
+                         Compose components (DeviceGridTile, SceneCard, StatusDot, ...).
   testing/               Shared test fixtures (currently just re-exports the test
                          libraries as `api` so feature/core modules get them for free).
 
 feature/
-  login/                 Username/password + house picker.
+  login/                 Username/password + house picker; the app-level biometric lock.
   houses/                Add/edit/delete connection profiles; LAN discovery UI.
-  dashboard/             Post-login landing screen.
-  devices/               Rooms/devices list + control (switches, sliders, pulses).
-  ambiences/             Scenarios (scenes): list + trigger.
-  settings/              Session info, "manage houses" entry point, logout.
+  devices/               Post-login landing screen (Home tab): per-room device grid +
+                         control (switches, sliders, pulses), plus the device detail screen.
+  ambiences/             Automations (scenes): list + trigger.
+  settings/              Session info, "manage houses" entry point, appearance/biometric
+                         settings, logout.
 ```
 
 Dependency direction is strictly `feature -> core:domain, core:designsystem` and

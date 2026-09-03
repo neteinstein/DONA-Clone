@@ -5,8 +5,8 @@ import com.neteinstein.donaclone.core.data.di.dataModule
 import com.neteinstein.donaclone.core.database.di.databaseModule
 import com.neteinstein.donaclone.core.domain.di.useCaseModule
 import com.neteinstein.donaclone.core.network.di.networkModule
+import com.neteinstein.donaclone.di.appModule
 import com.neteinstein.donaclone.feature.ambiences.di.ambiencesModule
-import com.neteinstein.donaclone.feature.dashboard.di.dashboardModule
 import com.neteinstein.donaclone.feature.devices.di.devicesModule
 import com.neteinstein.donaclone.feature.houses.di.housesModule
 import com.neteinstein.donaclone.feature.login.di.loginModule
@@ -33,9 +33,9 @@ class DonaCloneApplication : Application() {
                 databaseModule,
                 dataModule,
                 useCaseModule,
+                appModule,
                 loginModule,
                 housesModule,
-                dashboardModule,
                 devicesModule,
                 ambiencesModule,
                 settingsModule,

@@ -29,7 +29,6 @@ dependencies {
     kover(project(":core:designsystem"))
     kover(project(":feature:login"))
     kover(project(":feature:houses"))
-    kover(project(":feature:dashboard"))
     kover(project(":feature:devices"))
     kover(project(":feature:ambiences"))
     kover(project(":feature:settings"))

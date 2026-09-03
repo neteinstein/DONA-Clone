@@ -5,10 +5,16 @@ import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.model.AuthSession
 import com.neteinstein.donaclone.core.model.House
+import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,7 +25,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -32,6 +40,8 @@ class LoginViewModelTest {
     private val observeHouses = mockk<ObserveHousesUseCase>()
     private val getActiveHouse = mockk<GetActiveHouseUseCase>()
     private val login = mockk<LoginUseCase>()
+    private val observeBiometricEnabled = mockk<ObserveBiometricEnabledUseCase>()
+    private val setBiometricEnabled = mockk<SetBiometricEnabledUseCase>()
 
     @Before
     fun setUp() {
@@ -43,10 +53,11 @@ class LoginViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel(): LoginViewModel {
+    private fun createViewModel(biometricEnabled: Boolean = false): LoginViewModel {
         coEvery { observeHouses() } returns flowOf(listOf(house))
         coEvery { getActiveHouse() } returns null
-        return LoginViewModel(observeHouses, getActiveHouse, login)
+        every { observeBiometricEnabled() } returns flowOf(biometricEnabled)
+        return LoginViewModel(observeHouses, getActiveHouse, login, observeBiometricEnabled, setBiometricEnabled)
     }
 
     @Test
@@ -98,5 +109,47 @@ class LoginViewModelTest {
                 assertEquals(false, failed.loginSucceeded)
                 assertEquals("Wrong password", failed.errorMessage)
             }
+        }
+
+    @Test
+    fun `successful login offers the biometric opt-in prompt when it isn't already on`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel(biometricEnabled = false)
+            dispatcher.scheduler.advanceUntilIdle()
+            val session = AuthSession(token = "t", userId = 1, userName = "alice", houseName = "Home")
+            coEvery { login.invoke(any()) } returns DonaResult.Success(session)
+
+            viewModel.login()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.showBiometricOptInPrompt)
+        }
+
+    @Test
+    fun `successful login does not re-offer the prompt when biometric is already on`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel(biometricEnabled = true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val session = AuthSession(token = "t", userId = 1, userName = "alice", houseName = "Home")
+            coEvery { login.invoke(any()) } returns DonaResult.Success(session)
+
+            viewModel.login()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.showBiometricOptInPrompt)
+        }
+
+    @Test
+    fun `accepting the opt-in prompt enables biometric unlock`() =
+        runTest(dispatcher) {
+            coEvery { setBiometricEnabled(true) } just Runs
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.onBiometricOptInResult(enable = true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { setBiometricEnabled(true) }
+            assertFalse(viewModel.uiState.value.showBiometricOptInPrompt)
         }
 }

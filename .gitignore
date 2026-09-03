@@ -32,3 +32,8 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Python (homeassistant/ integration + tests)
+__pycache__/
+*.pyc
+.pytest_cache/

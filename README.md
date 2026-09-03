@@ -54,6 +54,15 @@ flagged `UNCONFIRMED` in the protocol doc — they're implemented as a best-effo
 reconstruction and should be double-checked against the real hub's traffic if
 something doesn't work.
 
+## Voice control (Google Home)
+
+This app itself has no server and can't be reached by Google Home directly.
+[`homeassistant/`](homeassistant/) has a Home Assistant custom integration
+that talks to the same hub over the same `domotalk` protocol, so that
+Home Assistant's existing Google Assistant support can expose your devices
+and scenarios for voice control — see [`homeassistant/README.md`](homeassistant/README.md)
+for setup.
+
 ### A note on security
 
 This client deliberately reproduces two properties of the *original* app's protocol,

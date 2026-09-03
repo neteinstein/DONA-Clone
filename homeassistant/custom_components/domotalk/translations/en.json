@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your domotalk hub",
+        "description": "Enter the same host and credentials you use in the DONA-Clone app or the original DONA app.",
+        "data": {
+          "host": "Host (IP address or DDNS hostname)",
+          "username": "Username",
+          "password": "Password",
+          "secure": "Use a secure connection (wss://)",
+          "trust_all_certs": "Trust the hub's certificate without validation (needed for its self-signed certificate)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the hub. Check the host and try again.",
+      "invalid_auth": "Could not find an enabled user with that name/password.",
+      "unknown": "Unexpected error, check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This hub is already configured."
+    }
+  }
+}

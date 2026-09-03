@@ -1,0 +1,11 @@
+{
+  "domain": "domotalk",
+  "name": "DONA-Clone (domotalk hub)",
+  "codeowners": ["@neteinstein"],
+  "config_flow": true,
+  "documentation": "https://github.com/neteinstein/dona-clone/blob/main/homeassistant/README.md",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/neteinstein/dona-clone/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

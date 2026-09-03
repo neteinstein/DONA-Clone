@@ -161,12 +161,16 @@ class DevicesViewModel(
      * authoritative and keeps using [onShutterTap] instead. */
     fun onGroupedTap(item: DeviceDisplayItem.Grouped) {
         val primary = item.primary
+        // Local vals, not the item's properties directly — Kotlin can't smart-cast a nullable
+        // property to non-null across module boundaries (DeviceDisplayItem lives in core:model).
+        val openAction = item.openAction
+        val closeAction = item.closeAction
         when {
             primary is Device.Shutter -> onShutterTap(primary)
-            item.openAction != null && item.closeAction != null ->
-                if (isDeviceOpenOrOn(primary)) firePulse(item.closeAction) else firePulse(item.openAction)
-            item.openAction != null -> firePulse(item.openAction)
-            item.closeAction != null -> firePulse(item.closeAction)
+            openAction != null && closeAction != null ->
+                if (isDeviceOpenOrOn(primary)) firePulse(closeAction) else firePulse(openAction)
+            openAction != null -> firePulse(openAction)
+            closeAction != null -> firePulse(closeAction)
             // No actions at all (e.g. on/off + hidden numeric reading) — caller falls back to the
             // primary device's own default tap behavior.
         }

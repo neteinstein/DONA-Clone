@@ -5,8 +5,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -89,7 +93,14 @@ class MainActivity : FragmentActivity() {
                     }
                 }
 
-                Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+                // Every top-level screen already handles its own top inset (a Scaffold with a
+                // TopAppBar, or an explicit statusBarsPadding() on Login/BiometricLock) — exclude
+                // the status bar here, or the top bar on every screen ends up pushed down by its
+                // height a second time.
+                Scaffold(
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.statusBars),
+                ) { padding ->
                     Surface(
                         modifier = Modifier.fillMaxSize().padding(padding),
                         color = MaterialTheme.colorScheme.background,

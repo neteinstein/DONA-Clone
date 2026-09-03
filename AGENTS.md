@@ -64,7 +64,7 @@ core/
                          together, maps DTOs -> domain models, owns the raw-JSON
                          device cache actions need (see README §4).
   designsystem/          DonaTheme (light/dark, optional dynamic color), reusable
-                         Compose components (DeviceGridTile, SceneCard, StatusDot, ...).
+                         Compose components (DeviceGridTile, SceneCard, PercentageSlider, ...).
   testing/               Shared test fixtures (currently just re-exports the test
                          libraries as `api` so feature/core modules get them for free).
 

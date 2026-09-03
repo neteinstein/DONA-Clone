@@ -23,7 +23,7 @@ import com.neteinstein.donaclone.core.model.PulseKind
 
 /**
  * A best-effort classification of a device, driving both its icon (this file) and its detail
- * screen theming ([DeviceCategoryTheme]). Interaction behaviour (what a tap/long-press does) is
+ * screen theming ([colorsForCategory]). Interaction behaviour (what a tap/long-press does) is
  * driven purely by the [Device] sealed subtype, never by this category — the category only ever
  * picks icon/label/color, matching the hub's own freeTypeLabel being an independent, best-effort
  * hint rather than a wire-protocol type.

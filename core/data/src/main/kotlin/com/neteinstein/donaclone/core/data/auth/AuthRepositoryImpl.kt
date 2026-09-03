@@ -212,11 +212,14 @@ class AuthRepositoryImpl(
     private suspend fun lastActiveHouse(): House? =
         houseRepository.activeHouseName.first()?.let { houseRepository.getHouse(it) }
 
-    private fun connectionAttempts(house: House): List<Pair<String, Boolean>> =
-        buildList {
-            if (!house.dns.isNullOrBlank()) add(house.dns to house.secureDns)
-            if (!house.localIp.isNullOrBlank()) add(house.localIp to house.secureLocalIp)
+    private fun connectionAttempts(house: House): List<Pair<String, Boolean>> {
+        val dns = house.dns
+        val localIp = house.localIp
+        return buildList {
+            if (!dns.isNullOrBlank()) add(dns to house.secureDns)
+            if (!localIp.isNullOrBlank()) add(localIp to house.secureLocalIp)
         }
+    }
 
     private companion object {
         const val MAX_AUTO_RETRY_ATTEMPTS = 3

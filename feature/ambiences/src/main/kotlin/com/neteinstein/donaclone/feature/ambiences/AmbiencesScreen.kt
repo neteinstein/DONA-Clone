@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,15 +29,11 @@ import com.neteinstein.donaclone.core.model.Ambience
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun AmbiencesRoute(
-    onBack: () -> Unit,
-    viewModel: AmbiencesViewModel = koinViewModel(),
-) {
+fun AmbiencesRoute(viewModel: AmbiencesViewModel = koinViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
     AmbiencesScreen(
         uiState = uiState,
-        onBack = onBack,
         onRefresh = viewModel::refresh,
         onToggle = viewModel::toggle,
     )
@@ -48,19 +43,13 @@ fun AmbiencesRoute(
 @Composable
 fun AmbiencesScreen(
     uiState: AmbiencesUiState,
-    onBack: () -> Unit,
     onRefresh: () -> Unit,
     onToggle: (Ambience) -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scenarios") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Automations") },
                 actions = {
                     IconButton(onClick = onRefresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")

@@ -2,6 +2,7 @@
 
 package com.neteinstein.donaclone.feature.login
 
+import androidx.biometric.BiometricManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -36,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -50,9 +53,15 @@ fun LoginRoute(
     viewModel: LoginViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val biometricAvailable =
+        remember {
+            BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        }
 
-    LaunchedEffect(uiState.loginSucceeded) {
-        if (uiState.loginSucceeded) {
+    LaunchedEffect(uiState.loginSucceeded, uiState.showBiometricOptInPrompt) {
+        if (uiState.loginSucceeded && !uiState.showBiometricOptInPrompt) {
             viewModel.consumeLoginSucceeded()
             onLoggedIn()
         }
@@ -66,6 +75,24 @@ fun LoginRoute(
         onLoginClick = viewModel::login,
         onManageHouses = onManageHouses,
     )
+
+    if (uiState.showBiometricOptInPrompt) {
+        if (biometricAvailable) {
+            AlertDialog(
+                onDismissRequest = { viewModel.onBiometricOptInResult(false) },
+                title = { Text("Enable fingerprint unlock?") },
+                text = { Text("Skip typing your password next time — unlock the app with your fingerprint instead.") },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.onBiometricOptInResult(true) }) { Text("Enable") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.onBiometricOptInResult(false) }) { Text("Not now") }
+                },
+            )
+        } else {
+            LaunchedEffect(Unit) { viewModel.onBiometricOptInResult(false) }
+        }
+    }
 }
 
 @Composable

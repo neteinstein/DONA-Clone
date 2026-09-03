@@ -1,6 +1,12 @@
 package com.neteinstein.donaclone.core.domain.di
 
 import com.neteinstein.donaclone.core.domain.usecase.DeleteHouseUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveConnectivityUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveDpuUnreachableUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
@@ -12,6 +18,7 @@ import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
+import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetActiveHouseUseCase
@@ -32,6 +39,8 @@ val useCaseModule =
         factoryOf(::LogoutUseCase)
         factoryOf(::ObserveSessionStateUseCase)
         factoryOf(::GetCurrentSessionUseCase)
+        factoryOf(::RetryConnectionUseCase)
+        factoryOf(::ObserveDpuUnreachableUseCase)
 
         factoryOf(::GetRoomsUseCase)
         factoryOf(::GetDevicesUseCase)
@@ -40,4 +49,10 @@ val useCaseModule =
 
         factoryOf(::GetAmbiencesUseCase)
         factoryOf(::TriggerAmbienceUseCase)
+
+        factoryOf(::ObserveThemeModeUseCase)
+        factoryOf(::SetThemeModeUseCase)
+        factoryOf(::ObserveBiometricEnabledUseCase)
+        factoryOf(::SetBiometricEnabledUseCase)
+        factoryOf(::ObserveConnectivityUseCase)
     }

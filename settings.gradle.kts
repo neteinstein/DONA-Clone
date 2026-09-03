@@ -29,7 +29,6 @@ include(":core:testing")
 
 include(":feature:login")
 include(":feature:houses")
-include(":feature:dashboard")
 include(":feature:devices")
 include(":feature:ambiences")
 include(":feature:settings")

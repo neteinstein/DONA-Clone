@@ -65,7 +65,6 @@ dependencies {
 
     implementation(project(":feature:login"))
     implementation(project(":feature:houses"))
-    implementation(project(":feature:dashboard"))
     implementation(project(":feature:devices"))
     implementation(project(":feature:ambiences"))
     implementation(project(":feature:settings"))
@@ -74,6 +73,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splashscreen)
+    implementation(libs.androidx.biometric)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

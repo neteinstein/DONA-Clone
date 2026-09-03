@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.biometric)
 
     implementation(libs.kotlinx.coroutines.android)
 

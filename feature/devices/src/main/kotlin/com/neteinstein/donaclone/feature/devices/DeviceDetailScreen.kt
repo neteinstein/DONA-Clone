@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.neteinstein.donaclone.core.designsystem.component.BinaryOutputSwitch
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
 import com.neteinstein.donaclone.core.designsystem.component.PercentageSlider
@@ -170,9 +169,10 @@ private fun DeviceDetailContent(
             )
         }
 
-        if (device.description != null) {
+        val description = device.description
+        if (description != null) {
             Text(
-                text = device.description,
+                text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 4.dp),
             )

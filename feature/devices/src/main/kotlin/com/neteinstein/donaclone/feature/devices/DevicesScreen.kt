@@ -177,11 +177,21 @@ private fun DeviceCell(
         }
     val onClick: () -> Unit =
         when (device) {
-            is Device.BinaryOutput -> { { onToggleBinaryOutput(device) } }
-            is Device.Pulse -> { { onFirePulse(device) } }
-            is Device.Shutter -> { { onShutterTap(device) } }
-            is Device.Dimmer -> { { onDimmerTap(device) } }
-            else -> { {} }
+            is Device.BinaryOutput -> {
+                { onToggleBinaryOutput(device) }
+            }
+            is Device.Pulse -> {
+                { onFirePulse(device) }
+            }
+            is Device.Shutter -> {
+                { onShutterTap(device) }
+            }
+            is Device.Dimmer -> {
+                { onDimmerTap(device) }
+            }
+            else -> {
+                {}
+            }
         }
 
     DeviceGridTile(

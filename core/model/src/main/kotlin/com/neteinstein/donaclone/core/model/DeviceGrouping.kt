@@ -104,12 +104,20 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
                 .filter { it !== primaryParsed }
                 .map { it.device }
                 .firstOrNull { it is Device.AnalogInput || it is Device.Counter }
+        val openAction = group.firstOrNull { it.role == NameRole.OPEN_ACTION }?.device as? Device.Pulse
+        val closeAction = group.firstOrNull { it.role == NameRole.CLOSE_ACTION }?.device as? Device.Pulse
+
+        if (secondary == null && openAction == null && closeAction == null) {
+            // Nothing to actually attach to the state device — e.g. two same-type switches that
+            // merely happen to share an exact name. Don't wrap primaryParsed in a no-op Grouped
+            // item; leave every device in the group as its own independent Solo item.
+            group.forEach { result += DeviceDisplayItem.Solo(it.device) }
+            return@forEach
+        }
+
         stateCandidates
             .filter { it !== primaryParsed && it.device.id != secondary?.id }
             .forEach { result += DeviceDisplayItem.Solo(it.device) } // any other duplicate stays untouched
-
-        val openAction = group.firstOrNull { it.role == NameRole.OPEN_ACTION }?.device as? Device.Pulse
-        val closeAction = group.firstOrNull { it.role == NameRole.CLOSE_ACTION }?.device as? Device.Pulse
         group.filter { it.role == NameRole.OPEN_ACTION && it.device !== openAction }
             .forEach { result += DeviceDisplayItem.Solo(it.device) } // extra duplicates, don't drop
         group.filter { it.role == NameRole.CLOSE_ACTION && it.device !== closeAction }

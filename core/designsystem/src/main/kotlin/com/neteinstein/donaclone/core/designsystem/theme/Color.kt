@@ -2,13 +2,14 @@ package com.neteinstein.donaclone.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Brand teal, taken from the original app's welcome screen accent (#00a79d).
-val DonaTeal10 = Color(0xFF001F1D)
-val DonaTeal20 = Color(0xFF00332F)
-val DonaTeal30 = Color(0xFF004A43)
-val DonaTeal40 = Color(0xFF00655C)
-val DonaTeal80 = Color(0xFF4FDBCE)
-val DonaTeal90 = Color(0xFFA0F2E8)
+// Google Home app palette: Google's own "product blue" accent, replacing the original brand
+// teal so the app reads as a Google Home client at a glance.
+val DonaTeal10 = Color(0xFF001C38)
+val DonaTeal20 = Color(0xFF00315C)
+val DonaTeal30 = Color(0xFF04477E)
+val DonaTeal40 = Color(0xFF0B57D0)
+val DonaTeal80 = Color(0xFFA8C7FA)
+val DonaTeal90 = Color(0xFFD3E3FD)
 
 val DonaAmber40 = Color(0xFFB4700A)
 val DonaAmber80 = Color(0xFFFFB871)
@@ -18,14 +19,11 @@ val DonaRed40 = Color(0xFFBA1A1A)
 val DonaRed80 = Color(0xFFFFB4AB)
 val DonaRed90 = Color(0xFFFFDAD6)
 
-val DonaGreenOnline = Color(0xFF2ECC71)
-val DonaGrayOffline = Color(0xFF9AA5A3)
-
-val DonaNeutral10 = Color(0xFF191C1C)
-val DonaNeutral20 = Color(0xFF2D3131)
-val DonaNeutral90 = Color(0xFFE0E3E2)
-val DonaNeutral95 = Color(0xFFEFF1F0)
-val DonaNeutral99 = Color(0xFFFAFDFB)
+val DonaNeutral10 = Color(0xFF1B1C1E)
+val DonaNeutral20 = Color(0xFF2F3033)
+val DonaNeutral90 = Color(0xFFE2E2E6)
+val DonaNeutral95 = Color(0xFFF0F0F4)
+val DonaNeutral99 = Color(0xFFFAFAFD)
 
 // Device-category accent pairs for the detail screen's hero header, light/dark variants.
 // Warm amber for lights/dimmers.

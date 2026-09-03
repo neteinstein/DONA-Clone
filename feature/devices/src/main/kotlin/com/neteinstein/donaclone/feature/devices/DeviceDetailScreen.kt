@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
 import com.neteinstein.donaclone.core.designsystem.component.PercentageSlider
-import com.neteinstein.donaclone.core.designsystem.component.StatusDot
 import com.neteinstein.donaclone.core.model.Device
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -147,18 +146,12 @@ private fun DeviceDetailContent(
             )
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Text(
+            text = if (device.online) "Online" else "Offline — controls disabled",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp),
-        ) {
-            StatusDot(online = device.online)
-            Text(
-                text = if (device.online) "Online" else "Offline",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
+        )
 
         if (roomName != null) {
             Text(
@@ -202,6 +195,8 @@ private fun DeviceActions(
     onShutterPercentage: (Device.Shutter, Int) -> Unit,
     onDimmerPercentage: (Device.Dimmer, Int) -> Unit,
 ) {
+    val enabled = device.online
+
     when (device) {
         is Device.BinaryOutput ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -209,6 +204,7 @@ private fun DeviceActions(
                 Switch(
                     checked = device.isOn,
                     onCheckedChange = { onToggleBinaryOutput(device) },
+                    enabled = enabled,
                     modifier = Modifier.padding(start = 16.dp),
                 )
             }
@@ -219,16 +215,17 @@ private fun DeviceActions(
                 PercentageSlider(
                     percentage = device.percentage,
                     onValueChangeFinished = { onShutterPercentage(device, it) },
+                    enabled = enabled,
                     modifier = Modifier.padding(top = 12.dp),
                 )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(top = 16.dp),
                 ) {
-                    Button(onClick = { onOpenShutter(device) }, enabled = device.percentage < 100) {
+                    Button(onClick = { onOpenShutter(device) }, enabled = enabled && device.percentage < 100) {
                         Text("Open")
                     }
-                    Button(onClick = { onCloseShutter(device) }, enabled = device.percentage > 0) {
+                    Button(onClick = { onCloseShutter(device) }, enabled = enabled && device.percentage > 0) {
                         Text("Close")
                     }
                 }
@@ -240,13 +237,14 @@ private fun DeviceActions(
                 PercentageSlider(
                     percentage = device.percentage,
                     onValueChangeFinished = { onDimmerPercentage(device, it) },
+                    enabled = enabled,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
 
         is Device.Pulse ->
             Column {
-                Button(onClick = { onFirePulse(device) }) { Text("Trigger") }
+                Button(onClick = { onFirePulse(device) }, enabled = enabled) { Text("Trigger") }
                 Text(
                     text = "This device reports no persisted state — the hub only ever confirms the moment it was triggered.",
                     style = MaterialTheme.typography.bodySmall,

@@ -24,6 +24,7 @@ fun PercentageSlider(
     percentage: Int,
     onValueChangeFinished: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     var localValue by remember(percentage) { mutableFloatStateOf(percentage.toFloat()) }
 
@@ -33,6 +34,7 @@ fun PercentageSlider(
             onValueChange = { localValue = it },
             onValueChangeFinished = { onValueChangeFinished(localValue.toInt()) },
             valueRange = 0f..100f,
+            enabled = enabled,
             modifier = Modifier.width(140.dp),
         )
         Text(

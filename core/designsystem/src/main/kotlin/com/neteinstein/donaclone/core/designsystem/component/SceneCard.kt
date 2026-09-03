@@ -7,11 +7,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -26,11 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/** A tappable scene tile; while [isPlaying] the icon pulses and the card tints toward primary. */
+/** A tappable, pill-shaped scene tile; while [isPlaying] the icon pulses and the card tints
+ * toward primary. */
 @Composable
 fun SceneCard(
     name: String,
@@ -60,16 +62,18 @@ fun SceneCard(
     Card(
         modifier =
             modifier
-                .aspectRatio(1f)
+                .fillMaxWidth()
+                .height(72.dp)
                 .clickable(onClick = onClick),
+        shape = RoundedCornerShape(percent = 50),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
-        Column(
+        Row(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = icon,
@@ -77,22 +81,23 @@ fun SceneCard(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier =
                     Modifier
-                        .size(36.dp)
+                        .size(32.dp)
                         .scale(if (isPlaying) iconScale else 1f),
             )
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier =
+                    Modifier
+                        .padding(start = 16.dp)
+                        .weight(1f),
             )
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                 contentDescription = if (isPlaying) "Stop" else "Run",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }

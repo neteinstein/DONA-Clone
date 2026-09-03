@@ -1,19 +1,34 @@
 package com.neteinstein.donaclone.navigation
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -36,7 +51,7 @@ enum class TopLevelDestination(
 }
 
 /**
- * The post-login shell: a persistent bottom [NavigationBar] over a nested [NavHost], mirroring
+ * The post-login shell: a persistent bottom [DonaBottomBar] over a nested [NavHost], mirroring
  * Google Home's Home/Automations/Settings tabs. Each tab keeps its own back stack/scroll state
  * via [androidx.navigation.NavOptionsBuilder.saveState]/`restoreState`. [DEVICE_DETAIL] is
  * deliberately not one of these tabs — it's pushed on the outer [DonaNavHost] instead, full
@@ -52,29 +67,19 @@ fun MainScreen(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                val backStackEntry by innerNavController.currentBackStackEntryAsState()
-                val currentDestination = backStackEntry?.destination
-
-                TopLevelDestination.entries.forEach { destination ->
-                    val selected =
-                        currentDestination?.hierarchy?.any { it.route == destination.route } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            innerNavController.navigate(destination.route) {
-                                popUpTo(innerNavController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) },
-                    )
-                }
-            }
+            val backStackEntry by innerNavController.currentBackStackEntryAsState()
+            DonaBottomBar(
+                currentDestination = backStackEntry?.destination,
+                onNavigate = { destination ->
+                    innerNavController.navigate(destination.route) {
+                        popUpTo(innerNavController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+            )
         },
     ) { padding ->
         NavHost(
@@ -90,6 +95,62 @@ fun MainScreen(
             }
             composable(TopLevelDestination.SETTINGS.route) {
                 SettingsRoute(onManageHouses = onOpenHouses, onLoggedOut = onLoggedOut)
+            }
+        }
+    }
+}
+
+/** A custom bottom bar (replacing Material3's stock `NavigationBar`/`NavigationBarItem`) whose
+ * selected-item highlight fills the bar's full height edge-to-edge, rather than a small centered
+ * pill with empty space above/below it. */
+@Composable
+private fun DonaBottomBar(
+    currentDestination: NavDestination?,
+    onNavigate: (TopLevelDestination) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .navigationBarsPadding(),
+    ) {
+        TopLevelDestination.entries.forEach { destination ->
+            val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
+            val containerColor by animateColorAsState(
+                targetValue = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                label = "bottom-nav-item-color",
+            )
+            val contentColor =
+                if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onNavigate(destination) },
+                        )
+                        .background(containerColor),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(destination.icon, contentDescription = destination.label, tint = contentColor)
+                    Text(
+                        destination.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
     }

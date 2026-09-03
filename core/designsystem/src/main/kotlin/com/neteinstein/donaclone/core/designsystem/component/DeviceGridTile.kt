@@ -5,15 +5,16 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -24,9 +25,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.neteinstein.donaclone.core.model.shutterStateLabel
 
 /**
  * Visual/interaction state driving a [DeviceGridTile]'s fill and label — mirrors the Home tab's
@@ -56,9 +57,10 @@ sealed interface DeviceTileVisualState {
 }
 
 /**
- * A square, Google-Home-style device card: icon + name + state, tap for the primary action,
- * long-press to open the device detail screen. [onClick] should be a no-op (not null — Compose's
- * `combinedClickable` still needs a click handler) for read-only sensor tiles.
+ * A pill-shaped, Google-Home-style device tile: icon + name + state in a horizontal row, tap for
+ * the primary action, long-press to open the device detail screen. [onClick] should be a no-op
+ * (not null — Compose's `combinedClickable` still needs a click handler) for read-only sensor
+ * tiles.
  *
  * When [online] is false the tile is disabled outright (no tap, no long-press, dimmed content)
  * rather than showing a colored online/offline indicator — an unreachable device has no action to
@@ -95,8 +97,10 @@ fun DeviceGridTile(
     Card(
         modifier =
             modifier
-                .aspectRatio(1f)
+                .fillMaxWidth()
+                .height(72.dp)
                 .combinedClickable(enabled = online, onClick = onClick, onLongClick = onLongClick),
+        shape = RoundedCornerShape(percent = 50),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -108,35 +112,25 @@ fun DeviceGridTile(
                 Box(
                     modifier =
                         Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .fillMaxHeight(fillFraction)
+                            .align(Alignment.CenterStart)
+                            .fillMaxHeight()
+                            .fillMaxWidth(fillFraction)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                 )
             }
 
-            Column(
+            Row(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+                        .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = contentColor,
-                    modifier = Modifier.size(32.dp),
-                )
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = contentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.size(28.dp),
                 )
                 val subtitle =
                     when {
@@ -144,7 +138,7 @@ fun DeviceGridTile(
                         visualState is DeviceTileVisualState.Toggle -> if (visualState.isOn) "On" else "Off"
                         visualState is DeviceTileVisualState.FillLevel ->
                             if (visualState.showPercentageLabel) {
-                                "${visualState.percentage}%"
+                                shutterStateLabel(visualState.percentage)
                             } else if (visualState.percentage > 0) {
                                 "On"
                             } else {
@@ -153,8 +147,22 @@ fun DeviceGridTile(
                         visualState is DeviceTileVisualState.ReadOnly -> visualState.subtitle
                         else -> null
                     }
-                if (subtitle != null) {
-                    Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = contentColor)
+                Column(
+                    modifier =
+                        Modifier
+                            .padding(start = 12.dp)
+                            .weight(1f),
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = contentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (subtitle != null) {
+                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = contentColor)
+                    }
                 }
             }
         }

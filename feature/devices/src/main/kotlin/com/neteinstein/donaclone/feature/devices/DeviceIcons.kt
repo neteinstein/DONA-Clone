@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DeviceUnknown
 import androidx.compose.material.icons.filled.DoorFront
 import androidx.compose.material.icons.filled.Fence
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Plumbing
@@ -14,12 +14,12 @@ import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.VerticalAlignCenter
 import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.WbIncandescent
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.PulseKind
+import com.neteinstein.donaclone.core.model.shutterStateLabel
 
 /**
  * A best-effort classification of a device, driving both its icon (this file) and its detail
@@ -94,10 +94,10 @@ fun iconFor(device: Device): ImageVector = iconFor(deviceCategoryOf(device))
 
 fun iconFor(category: DeviceCategory): ImageVector =
     when (category) {
-        DeviceCategory.LIGHT -> Icons.Filled.WbIncandescent
+        DeviceCategory.LIGHT -> Icons.Filled.Lightbulb
         DeviceCategory.DIMMER -> Icons.Filled.WbSunny
         DeviceCategory.SHUTTER -> Icons.Filled.VerticalAlignCenter
-        DeviceCategory.LOCK -> Icons.Filled.Lock
+        DeviceCategory.LOCK -> Icons.Filled.DoorFront
         DeviceCategory.VALVE -> Icons.Filled.Plumbing
         DeviceCategory.FLOOD_SENSOR -> Icons.Filled.WaterDrop
         DeviceCategory.DOOR_SENSOR -> Icons.Filled.DoorFront
@@ -117,7 +117,7 @@ fun stateLabelFor(device: Device): String? =
     when (device) {
         is Device.BinaryOutput -> if (device.isOn) "On" else "Off"
         is Device.Pulse -> null
-        is Device.Shutter -> "${device.percentage}% open"
+        is Device.Shutter -> shutterStateLabel(device.percentage)
         is Device.Dimmer -> "${device.percentage}%"
         is Device.BinaryInput -> if (device.isActive) "Active" else "Idle"
         is Device.AnalogInput -> device.value.toString()

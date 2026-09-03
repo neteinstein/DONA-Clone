@@ -7,7 +7,9 @@ import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceCommand
 import com.neteinstein.donaclone.core.model.DeviceUpdate
@@ -19,6 +21,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -39,6 +42,8 @@ class DevicesViewModelTest {
     private val observeDeviceUpdates = mockk<ObserveDeviceUpdatesUseCase>()
     private val getCurrentSession = mockk<GetCurrentSessionUseCase>()
     private val logout = mockk<LogoutUseCase>()
+    private val observeRoomsExpandedByDefault = mockk<ObserveRoomsExpandedByDefaultUseCase>()
+    private val setRoomsExpandedByDefault = mockk<SetRoomsExpandedByDefaultUseCase>()
     private val updates = MutableSharedFlow<DeviceUpdate>()
 
     private val light = Device.BinaryOutput(id = 1, name = "Kitchen light", isOn = false)
@@ -52,6 +57,8 @@ class DevicesViewModelTest {
         coEvery { getDevices() } returns DonaResult.Success(listOf(light, shutter, lock))
         coEvery { observeDeviceUpdates() } returns updates
         every { getCurrentSession() } returns null
+        every { observeRoomsExpandedByDefault() } returns flowOf(true)
+        coEvery { setRoomsExpandedByDefault(any()) } returns Unit
     }
 
     @After
@@ -60,7 +67,16 @@ class DevicesViewModelTest {
     }
 
     private fun createViewModel() =
-        DevicesViewModel(getRooms, getDevices, sendCommand, observeDeviceUpdates, getCurrentSession, logout)
+        DevicesViewModel(
+            getRooms,
+            getDevices,
+            sendCommand,
+            observeDeviceUpdates,
+            getCurrentSession,
+            logout,
+            observeRoomsExpandedByDefault,
+            setRoomsExpandedByDefault,
+        )
 
     @Test
     fun `a live update flips the cached device state`() =

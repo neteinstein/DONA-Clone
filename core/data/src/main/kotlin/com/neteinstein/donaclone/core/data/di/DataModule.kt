@@ -8,6 +8,7 @@ import com.neteinstein.donaclone.core.data.device.DeviceRepositoryImpl
 import com.neteinstein.donaclone.core.data.house.DiscoveryRepositoryImpl
 import com.neteinstein.donaclone.core.data.house.HouseRepositoryImpl
 import com.neteinstein.donaclone.core.data.mapper.HouseMapper
+import com.neteinstein.donaclone.core.data.roomsdisplay.RoomsDisplayRepositoryImpl
 import com.neteinstein.donaclone.core.data.theme.ThemeRepositoryImpl
 import com.neteinstein.donaclone.core.domain.repository.AmbienceRepository
 import com.neteinstein.donaclone.core.domain.repository.AuthRepository
@@ -16,6 +17,7 @@ import com.neteinstein.donaclone.core.domain.repository.ConnectivityRepository
 import com.neteinstein.donaclone.core.domain.repository.DeviceRepository
 import com.neteinstein.donaclone.core.domain.repository.DiscoveryRepository
 import com.neteinstein.donaclone.core.domain.repository.HouseRepository
+import com.neteinstein.donaclone.core.domain.repository.RoomsDisplayRepository
 import com.neteinstein.donaclone.core.domain.repository.ThemeRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,5 +43,6 @@ val dataModule =
         single<AmbienceRepository> { AmbienceRepositoryImpl(api = get()) }
         single<ThemeRepository> { ThemeRepositoryImpl(themePreferences = get()) }
         single<BiometricRepository> { BiometricRepositoryImpl(biometricPreferences = get()) }
+        single<RoomsDisplayRepository> { RoomsDisplayRepositoryImpl(roomsDisplayPreferences = get()) }
         single<ConnectivityRepository> { ConnectivityRepositoryImpl(observer = get()) }
     }

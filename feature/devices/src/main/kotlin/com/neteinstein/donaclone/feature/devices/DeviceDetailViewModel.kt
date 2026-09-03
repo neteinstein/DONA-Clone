@@ -9,6 +9,8 @@ import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceCommand
+import com.neteinstein.donaclone.core.model.DeviceDisplayItem
+import com.neteinstein.donaclone.core.model.groupDevices
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +20,10 @@ import kotlinx.coroutines.launch
 data class DeviceDetailUiState(
     val isLoading: Boolean = true,
     val device: Device? = null,
+    val displayName: String? = null,
+    val secondaryDevice: Device? = null,
+    val openAction: Device.Pulse? = null,
+    val closeAction: Device.Pulse? = null,
     val roomName: String? = null,
     val errorMessage: String? = null,
 )
@@ -51,12 +57,18 @@ class DeviceDetailViewModel(
 
             when (val result = getDevices()) {
                 is DonaResult.Success -> {
-                    val device = result.data.firstOrNull { it.id == deviceId }
+                    val displayItem = groupDevices(result.data).firstOrNull { it.primary.id == deviceId }
+                    val device = displayItem?.primary
+                    val grouped = displayItem as? DeviceDisplayItem.Grouped
                     val roomName = rooms.firstOrNull { it.id == device?.roomId }?.name
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             device = device,
+                            displayName = grouped?.displayName,
+                            secondaryDevice = grouped?.secondary,
+                            openAction = grouped?.openAction,
+                            closeAction = grouped?.closeAction,
                             roomName = roomName,
                             errorMessage = if (device == null) "Device not found" else null,
                         )

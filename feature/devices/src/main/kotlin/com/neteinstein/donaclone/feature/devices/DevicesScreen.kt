@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -17,20 +19,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +45,7 @@ import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
 import com.neteinstein.donaclone.core.model.Device
+import com.neteinstein.donaclone.core.model.DeviceDisplayItem
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -66,6 +69,9 @@ fun DevicesRoute(
         onFirePulse = viewModel::firePulse,
         onShutterTap = viewModel::onShutterTap,
         onDimmerTap = viewModel::onDimmerTap,
+        onGroupedTap = viewModel::onGroupedTap,
+        onToggleRoomCollapsed = viewModel::toggleRoomCollapsed,
+        onToggleAllRooms = viewModel::toggleAllRooms,
     )
 }
 
@@ -80,6 +86,9 @@ fun DevicesScreen(
     onFirePulse: (Device.Pulse) -> Unit,
     onShutterTap: (Device.Shutter) -> Unit,
     onDimmerTap: (Device.Dimmer) -> Unit,
+    onGroupedTap: (DeviceDisplayItem.Grouped) -> Unit,
+    onToggleRoomCollapsed: (Int) -> Unit,
+    onToggleAllRooms: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -122,14 +131,13 @@ fun DevicesScreen(
                     onFirePulse = onFirePulse,
                     onShutterTap = onShutterTap,
                     onDimmerTap = onDimmerTap,
+                    onGroupedTap = onGroupedTap,
+                    onToggleRoomCollapsed = onToggleRoomCollapsed,
+                    onToggleAllRooms = onToggleAllRooms,
                 )
         }
     }
 }
-
-/** Sentinel standing in for a null [Device.roomId] ("Unassigned") in the collapsed-set below —
- * real room ids come from the hub and are never negative. */
-private const val UNASSIGNED_ROOM_KEY = Int.MIN_VALUE
 
 @Composable
 private fun DeviceGrid(
@@ -140,41 +148,63 @@ private fun DeviceGrid(
     onFirePulse: (Device.Pulse) -> Unit,
     onShutterTap: (Device.Shutter) -> Unit,
     onDimmerTap: (Device.Dimmer) -> Unit,
+    onGroupedTap: (DeviceDisplayItem.Grouped) -> Unit,
+    onToggleRoomCollapsed: (Int) -> Unit,
+    onToggleAllRooms: () -> Unit,
 ) {
     val roomsById = uiState.rooms.associateBy { it.id }
-    var collapsedRoomIds by rememberSaveable { mutableStateOf(emptySet<Int>()) }
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = modifier.fillMaxSize(),
-    ) {
-        uiState.devicesByRoom.forEach { (roomId, devicesInRoom) ->
-            val sectionKey = roomId ?: UNASSIGNED_ROOM_KEY
-            val isCollapsed = sectionKey in collapsedRoomIds
-            item(span = { GridItemSpan(maxLineSpan) }, key = "header-$roomId") {
-                RoomSectionHeader(
-                    title = roomsById[roomId]?.name ?: "Unassigned",
-                    collapsed = isCollapsed,
-                    onToggle = {
-                        collapsedRoomIds =
-                            if (isCollapsed) collapsedRoomIds - sectionKey else collapsedRoomIds + sectionKey
-                    },
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = onToggleAllRooms) {
+                Icon(
+                    imageVector = if (uiState.allRoomsCollapsed) Icons.Filled.UnfoldMore else Icons.Filled.UnfoldLess,
+                    contentDescription = null,
                 )
+                Spacer(Modifier.width(4.dp))
+                Text(if (uiState.allRoomsCollapsed) "Expand all" else "Collapse all")
             }
-            if (!isCollapsed) {
-                items(devicesInRoom, key = { it.id }) { device ->
-                    DeviceCell(
-                        device = device,
-                        recentlyFired = device.id in uiState.recentlyFiredDeviceIds,
-                        onOpenDeviceDetail = onOpenDeviceDetail,
-                        onToggleBinaryOutput = onToggleBinaryOutput,
-                        onFirePulse = onFirePulse,
-                        onShutterTap = onShutterTap,
-                        onDimmerTap = onDimmerTap,
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+        ) {
+            uiState.displayItemsByRoom.forEach { (roomId, itemsInRoom) ->
+                val sectionKey = roomId ?: UNASSIGNED_ROOM_KEY
+                val isCollapsed = sectionKey in uiState.collapsedRoomIds
+                item(span = { GridItemSpan(maxLineSpan) }, key = "header-$roomId") {
+                    RoomSectionHeader(
+                        title = roomsById[roomId]?.name ?: "Unassigned",
+                        collapsed = isCollapsed,
+                        onToggle = { onToggleRoomCollapsed(sectionKey) },
                     )
+                }
+                if (!isCollapsed) {
+                    items(itemsInRoom, key = { it.primary.id }) { displayItem ->
+                        DeviceCell(
+                            item = displayItem,
+                            recentlyFired = displayItem.primary.id in uiState.recentlyFiredDeviceIds,
+                            onOpenDeviceDetail = onOpenDeviceDetail,
+                            onToggleBinaryOutput = onToggleBinaryOutput,
+                            onFirePulse = onFirePulse,
+                            onShutterTap = onShutterTap,
+                            onDimmerTap = onDimmerTap,
+                            onGroupedTap = onGroupedTap,
+                        )
+                    }
                 }
             }
         }
@@ -218,14 +248,16 @@ private fun RoomSectionHeader(
 
 @Composable
 private fun DeviceCell(
-    device: Device,
+    item: DeviceDisplayItem,
     recentlyFired: Boolean,
     onOpenDeviceDetail: (Int) -> Unit,
     onToggleBinaryOutput: (Device.BinaryOutput) -> Unit,
     onFirePulse: (Device.Pulse) -> Unit,
     onShutterTap: (Device.Shutter) -> Unit,
     onDimmerTap: (Device.Dimmer) -> Unit,
+    onGroupedTap: (DeviceDisplayItem.Grouped) -> Unit,
 ) {
+    val device = item.primary
     val visualState: DeviceTileVisualState =
         when (device) {
             is Device.BinaryOutput -> DeviceTileVisualState.Toggle(device.isOn)
@@ -236,27 +268,33 @@ private fun DeviceCell(
             is Device.Dimmer -> DeviceTileVisualState.FillLevel(device.percentage, showPercentageLabel = false)
             else -> DeviceTileVisualState.ReadOnly(stateLabelFor(device))
         }
+
+    val hasGroupedActions = item is DeviceDisplayItem.Grouped && (item.openAction != null || item.closeAction != null)
     val onClick: () -> Unit =
-        when (device) {
-            is Device.BinaryOutput -> {
-                { onToggleBinaryOutput(device) }
-            }
-            is Device.Pulse -> {
-                { onFirePulse(device) }
-            }
-            is Device.Shutter -> {
-                { onShutterTap(device) }
-            }
-            is Device.Dimmer -> {
-                { onDimmerTap(device) }
-            }
-            else -> {
-                {}
+        if (item is DeviceDisplayItem.Grouped && device !is Device.Shutter && hasGroupedActions) {
+            { onGroupedTap(item) }
+        } else {
+            when (device) {
+                is Device.BinaryOutput -> {
+                    { onToggleBinaryOutput(device) }
+                }
+                is Device.Pulse -> {
+                    { onFirePulse(device) }
+                }
+                is Device.Shutter -> {
+                    { onShutterTap(device) }
+                }
+                is Device.Dimmer -> {
+                    { onDimmerTap(device) }
+                }
+                else -> {
+                    {}
+                }
             }
         }
 
     DeviceGridTile(
-        name = device.name,
+        name = item.displayName,
         icon = iconFor(device),
         online = device.online,
         visualState = visualState,

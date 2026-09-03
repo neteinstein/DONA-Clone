@@ -33,6 +33,7 @@ import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
 import com.neteinstein.donaclone.core.designsystem.component.PercentageSlider
 import com.neteinstein.donaclone.core.model.Device
+import com.neteinstein.donaclone.core.model.shutterStateLabel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -77,7 +78,7 @@ fun DeviceDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(device?.name.orEmpty()) },
+                title = { Text((uiState.displayName ?: device?.name).orEmpty()) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -102,6 +103,9 @@ fun DeviceDetailScreen(
                     device = device,
                     roomName = uiState.roomName,
                     category = category ?: DeviceCategory.UNKNOWN,
+                    secondary = uiState.secondaryDevice,
+                    openAction = uiState.openAction,
+                    closeAction = uiState.closeAction,
                     modifier = Modifier.padding(padding),
                     onToggleBinaryOutput = onToggleBinaryOutput,
                     onFirePulse = onFirePulse,
@@ -119,6 +123,9 @@ private fun DeviceDetailContent(
     device: Device,
     roomName: String?,
     category: DeviceCategory,
+    secondary: Device?,
+    openAction: Device.Pulse?,
+    closeAction: Device.Pulse?,
     modifier: Modifier = Modifier,
     onToggleBinaryOutput: (Device.BinaryOutput) -> Unit,
     onFirePulse: (Device.Pulse) -> Unit,
@@ -174,6 +181,9 @@ private fun DeviceDetailContent(
         Box(modifier = Modifier.padding(top = 32.dp).fillMaxWidth()) {
             DeviceActions(
                 device = device,
+                secondary = secondary,
+                openAction = openAction,
+                closeAction = closeAction,
                 onToggleBinaryOutput = onToggleBinaryOutput,
                 onFirePulse = onFirePulse,
                 onOpenShutter = onOpenShutter,
@@ -188,6 +198,9 @@ private fun DeviceDetailContent(
 @Composable
 private fun DeviceActions(
     device: Device,
+    secondary: Device?,
+    openAction: Device.Pulse?,
+    closeAction: Device.Pulse?,
     onToggleBinaryOutput: (Device.BinaryOutput) -> Unit,
     onFirePulse: (Device.Pulse) -> Unit,
     onOpenShutter: (Device.Shutter) -> Unit,
@@ -197,6 +210,56 @@ private fun DeviceActions(
 ) {
     val enabled = device.online
 
+    Column {
+        DeviceActionsContent(
+            device = device,
+            enabled = enabled,
+            onToggleBinaryOutput = onToggleBinaryOutput,
+            onFirePulse = onFirePulse,
+            onOpenShutter = onOpenShutter,
+            onCloseShutter = onCloseShutter,
+            onShutterPercentage = onShutterPercentage,
+            onDimmerPercentage = onDimmerPercentage,
+        )
+
+        // A native shutter already has its own open/close/percentage controls above — any
+        // action-role siblings it was merged with are redundant and deliberately ignored here.
+        if (device !is Device.Shutter && (openAction != null || closeAction != null)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                if (openAction != null) {
+                    Button(onClick = { onFirePulse(openAction) }, enabled = enabled) { Text("Open") }
+                }
+                if (closeAction != null) {
+                    Button(onClick = { onFirePulse(closeAction) }, enabled = enabled) { Text("Close") }
+                }
+            }
+        }
+
+        if (secondary != null) {
+            Text(
+                text = "Also reports: ${stateLabelFor(secondary)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeviceActionsContent(
+    device: Device,
+    enabled: Boolean,
+    onToggleBinaryOutput: (Device.BinaryOutput) -> Unit,
+    onFirePulse: (Device.Pulse) -> Unit,
+    onOpenShutter: (Device.Shutter) -> Unit,
+    onCloseShutter: (Device.Shutter) -> Unit,
+    onShutterPercentage: (Device.Shutter, Int) -> Unit,
+    onDimmerPercentage: (Device.Dimmer, Int) -> Unit,
+) {
     when (device) {
         is Device.BinaryOutput ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -211,7 +274,7 @@ private fun DeviceActions(
 
         is Device.Shutter ->
             Column {
-                Text("${device.percentage}% open", style = MaterialTheme.typography.titleMedium)
+                Text(shutterStateLabel(device.percentage), style = MaterialTheme.typography.titleMedium)
                 PercentageSlider(
                     percentage = device.percentage,
                     onValueChangeFinished = { onShutterPercentage(device, it) },

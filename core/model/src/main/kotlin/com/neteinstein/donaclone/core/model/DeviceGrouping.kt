@@ -40,6 +40,7 @@ private val STATE_PREFIXES = listOf("Sensor", "Estado")
 
 private fun parseName(name: String): Pair<String, NameRole> {
     val trimmed = name.trim()
+
     fun strip(prefixes: List<String>) =
         prefixes.firstNotNullOfOrNull { p ->
             if (trimmed.startsWith("$p ", ignoreCase = true)) trimmed.substring(p.length).trim() else null

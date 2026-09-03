@@ -139,6 +139,15 @@ class DeviceGroupingTest {
     }
 
     @Test
+    fun `a solo device named as an open or close action is never an actionless sensor`() {
+        val opener = Device.BinaryInput(id = 1, name = "Abrir Portão", roomId = ROOM_A, isActive = false)
+        val closer = Device.AnalogInput(id = 2, name = "Fechar Portão", roomId = ROOM_A, value = 0.0)
+
+        assertTrue(!DeviceDisplayItem.Solo(opener).isActionlessSensor)
+        assertTrue(!DeviceDisplayItem.Solo(closer).isActionlessSensor)
+    }
+
+    @Test
     fun `a solo actionable device is not an actionless sensor`() {
         val light = Device.BinaryOutput(id = 1, name = "Luz", roomId = ROOM_A, isOn = true)
 

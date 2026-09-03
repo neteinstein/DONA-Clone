@@ -1,15 +1,18 @@
 package com.neteinstein.donaclone.feature.devices
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -36,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -50,12 +54,6 @@ import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceDisplayItem
 import com.neteinstein.donaclone.core.model.Division
 import kotlin.math.abs
-
-/** How close (in raw pixels) the dragged header's center has to get to another header's center
- * before the two rooms swap places. A rough, un-tuned heuristic — there's no scroll compensation,
- * so this is meant for the common case of a handful of on-screen room sections, not a very long
- * list requiring the grid to auto-scroll mid-drag. */
-private const val HEADER_SWAP_THRESHOLD_PX = 60f
 
 /**
  * The room-sectioned device grid shared by the Home tab ([DevicesScreen]) and the Sensors tab
@@ -86,14 +84,19 @@ internal fun DeviceRoomGrid(
     modifier: Modifier = Modifier,
 ) {
     // Root-coordinate vertical center of each on-screen header, refreshed on every layout pass —
-    // the drag math below compares the dragged header's live position against these.
+    // the drag math below compares the dragged header's live position against these. Room content
+    // never reflows mid-drag (that's what used to make dragging feel like it "jumped" items) — we
+    // only show where the drop would land, and commit the actual reorder once on drag end.
     val headerCenters = remember { mutableStateMapOf<Int, Float>() }
     var draggingRoomKey by remember { mutableStateOf<Int?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var dropTargetKey by remember { mutableStateOf<Int?>(null) }
+    var dropBeforeTarget by remember { mutableStateOf(true) }
 
     fun onHeaderDragStart(roomKey: Int) {
         draggingRoomKey = roomKey
         dragOffsetY = 0f
+        dropTargetKey = null
     }
 
     fun onHeaderDragBy(delta: Float) {
@@ -105,14 +108,25 @@ internal fun DeviceRoomGrid(
             headerCenters.entries
                 .filter { it.key != draggedKey }
                 .minByOrNull { abs(it.value - currentCenter) }
-        if (nearestOther != null && abs(nearestOther.value - currentCenter) < HEADER_SWAP_THRESHOLD_PX) {
-            onMoveRoom(draggedKey, nearestOther.key)
+        // A neighbor only becomes the drop target once the dragged header's center has crossed
+        // the midpoint between its original slot and that neighbor's — i.e. exactly the point
+        // this highlights for the user.
+        dropTargetKey =
+            nearestOther?.takeIf { abs(it.value - currentCenter) < abs(dragOffsetY) }?.key
+        if (dropTargetKey != null) {
+            dropBeforeTarget = currentCenter < nearestOther!!.value
         }
     }
 
     fun onHeaderDragEnd() {
+        val draggedKey = draggingRoomKey
+        val targetKey = dropTargetKey
+        if (draggedKey != null && targetKey != null) {
+            onMoveRoom(draggedKey, targetKey)
+        }
         draggingRoomKey = null
         dragOffsetY = 0f
+        dropTargetKey = null
     }
 
     val allCollapsed = itemsByRoom.keys.isNotEmpty() && itemsByRoom.keys.all { it in collapsedRoomIds }
@@ -153,6 +167,9 @@ internal fun DeviceRoomGrid(
                         collapsed = isCollapsed,
                         isDragging = draggingRoomKey == roomKey,
                         dragOffsetY = if (draggingRoomKey == roomKey) dragOffsetY else 0f,
+                        dragActive = draggingRoomKey != null,
+                        showDropIndicatorAbove = dropTargetKey == roomKey && dropBeforeTarget,
+                        showDropIndicatorBelow = dropTargetKey == roomKey && !dropBeforeTarget,
                         onToggle = { onToggleRoomCollapsed(roomKey) },
                         onPositioned = { centerY -> headerCenters[roomKey] = centerY },
                         onDragStart = { onHeaderDragStart(roomKey) },
@@ -182,13 +199,22 @@ internal fun DeviceRoomGrid(
 /** A large, full-width tap target so collapsing a room is easy to hit — bigger type than a plain
  * section label, since this is also the room's primary click affordance, not just a heading. The
  * trailing [Icons.Filled.DragHandle] is the only part that starts a reorder drag (long-press then
- * drag), so it never fights the header's own tap-to-collapse gesture. */
+ * drag), so it never fights the header's own tap-to-collapse gesture.
+ *
+ * While a drag is in progress ([dragActive]), every header reserves a thin strip above and below
+ * itself for a [DropIndicator] — reserved on all of them up front so the reserved space doesn't
+ * itself shift layout (and therefore [headerCenters][DeviceRoomGrid]) mid-drag. Only the header
+ * currently under the dragged one lights its strip up, showing exactly where the drop would land.
+ */
 @Composable
 private fun RoomSectionHeader(
     title: String,
     collapsed: Boolean,
     isDragging: Boolean,
     dragOffsetY: Float,
+    dragActive: Boolean,
+    showDropIndicatorAbove: Boolean,
+    showDropIndicatorBelow: Boolean,
     onToggle: () -> Unit,
     onPositioned: (centerY: Float) -> Unit,
     onDragStart: () -> Unit,
@@ -197,7 +223,7 @@ private fun RoomSectionHeader(
 ) {
     val chevronRotation by animateFloatAsState(targetValue = if (collapsed) -90f else 0f, label = "room-chevron")
 
-    Row(
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -205,48 +231,74 @@ private fun RoomSectionHeader(
                     val topY = coordinates.positionInRoot().y
                     onPositioned(topY + coordinates.size.height / 2f)
                 }
-                .graphicsLayer { translationY = dragOffsetY }
-                .zIndex(if (isDragging) 1f else 0f)
-                .clip(MaterialTheme.shapes.small)
-                .clickable(onClick = onToggle)
-                .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+                .graphicsLayer {
+                    translationY = dragOffsetY
+                    shadowElevation = if (isDragging) 8f else 0f
+                }
+                .zIndex(if (isDragging) 1f else 0f),
     ) {
-        Icon(
-            imageVector = Icons.Filled.ExpandMore,
-            contentDescription = if (collapsed) "Expand $title" else "Collapse $title",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.rotate(chevronRotation),
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            overflow = TextOverflow.Ellipsis,
-            maxLines = 1,
-            modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false),
-        )
-        Icon(
-            imageVector = Icons.Filled.DragHandle,
-            contentDescription = "Reorder $title",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (dragActive) DropIndicator(visible = showDropIndicatorAbove)
+        Row(
             modifier =
                 Modifier
-                    .padding(start = 12.dp)
-                    .pointerInput(Unit) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { onDragStart() },
-                            onDragEnd = { onDragEnd() },
-                            onDragCancel = { onDragEnd() },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                onDragBy(dragAmount.y)
-                            },
-                        )
-                    },
-        )
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.small)
+                    .background(if (isDragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ExpandMore,
+                contentDescription = if (collapsed) "Expand $title" else "Collapse $title",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.rotate(chevronRotation),
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false),
+            )
+            Icon(
+                imageVector = Icons.Filled.DragHandle,
+                contentDescription = "Reorder $title",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .padding(start = 12.dp)
+                        .pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { onDragStart() },
+                                onDragEnd = { onDragEnd() },
+                                onDragCancel = { onDragEnd() },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    onDragBy(dragAmount.y)
+                                },
+                            )
+                        },
+            )
+        }
+        if (dragActive) DropIndicator(visible = showDropIndicatorBelow)
     }
+}
+
+/** The highlighted line shown between two room titles marking where a dragged room would drop. */
+@Composable
+private fun DropIndicator(visible: Boolean) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp)
+                .height(3.dp)
+                .clip(MaterialTheme.shapes.small)
+                .background(if (visible) MaterialTheme.colorScheme.primary else Color.Transparent),
+    )
 }
 
 @Composable

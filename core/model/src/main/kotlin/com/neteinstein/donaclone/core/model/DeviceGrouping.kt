@@ -54,6 +54,11 @@ private fun parseName(name: String): Pair<String, NameRole> {
     return trimmed to NameRole.STATE // no recognized prefix — treat the whole name as the base, state role
 }
 
+/** True when [name] is recognized as an open/close/toggle action by [OPEN_PREFIXES]/[CLOSE_PREFIXES]
+ * — e.g. "Abrir Estore Cozinha", "Fechar Portão". Such a device is a command the user fires, never a
+ * passive reading, regardless of what raw [Device] subtype the hub happened to report it as. */
+private fun isActionName(name: String): Boolean = parseName(name).second != NameRole.STATE
+
 /** Lower number = preferred as the group's primary/state device. */
 private fun statePriority(device: Device): Int =
     when (device) {
@@ -146,7 +151,8 @@ val DeviceDisplayItem.isActionlessSensor: Boolean
     get() {
         val hasOwnAction =
             primary is Device.BinaryOutput || primary is Device.Pulse ||
-                primary is Device.Shutter || primary is Device.Dimmer
+                primary is Device.Shutter || primary is Device.Dimmer ||
+                isActionName(primary.name)
         val hasGroupedAction = this is DeviceDisplayItem.Grouped && (openAction != null || closeAction != null)
         return !hasOwnAction && !hasGroupedAction
     }

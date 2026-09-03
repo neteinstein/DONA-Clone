@@ -1,9 +1,7 @@
 package com.neteinstein.donaclone.feature.devices
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -13,57 +11,45 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
-import com.neteinstein.donaclone.core.model.Device
-import com.neteinstein.donaclone.core.model.DeviceDisplayItem
 import org.koin.androidx.compose.koinViewModel
 
+/**
+ * The Sensors tab: every read-only sensor with no tap action of its own (a door contact, a
+ * humidity reading, a pulse counter, ...) that the Home tab excludes — see
+ * [DevicesUiState.sensorDisplayItemsByRoom]. Shares [DevicesViewModel] (the device/room fetch,
+ * live updates, and room order/collapse state) with the Home tab, but each tab resolves its own
+ * `koinViewModel()` instance — same as every other tab in [com.neteinstein.donaclone.navigation.MainScreen]
+ * — so the two tabs do independently refresh devices/rooms rather than sharing one in-memory copy.
+ */
 @Composable
-fun DevicesRoute(
+fun SensorsRoute(
     onOpenDeviceDetail: (Int) -> Unit,
-    onLoggedOut: () -> Unit,
     viewModel: DevicesViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(uiState.loggedOut) {
-        if (uiState.loggedOut) onLoggedOut()
-    }
-
-    DevicesScreen(
+    SensorsScreen(
         uiState = uiState,
         onRefresh = viewModel::refresh,
-        onLogout = viewModel::logout,
         onOpenDeviceDetail = onOpenDeviceDetail,
-        onToggleBinaryOutput = viewModel::toggleBinaryOutput,
-        onFirePulse = viewModel::firePulse,
-        onShutterTap = viewModel::onShutterTap,
-        onDimmerTap = viewModel::onDimmerTap,
-        onGroupedTap = viewModel::onGroupedTap,
         onToggleRoomCollapsed = viewModel::toggleRoomCollapsed,
-        onToggleAllRooms = { viewModel.toggleAllRooms(uiState.homeDisplayItemsByRoom) },
+        onToggleAllRooms = { viewModel.toggleAllRooms(uiState.sensorDisplayItemsByRoom) },
         onMoveRoom = viewModel::onMoveRoom,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DevicesScreen(
+fun SensorsScreen(
     uiState: DevicesUiState,
     onRefresh: () -> Unit,
-    onLogout: () -> Unit,
     onOpenDeviceDetail: (Int) -> Unit,
-    onToggleBinaryOutput: (Device.BinaryOutput) -> Unit,
-    onFirePulse: (Device.Pulse) -> Unit,
-    onShutterTap: (Device.Shutter) -> Unit,
-    onDimmerTap: (Device.Dimmer) -> Unit,
-    onGroupedTap: (DeviceDisplayItem.Grouped) -> Unit,
     onToggleRoomCollapsed: (Int) -> Unit,
     onToggleAllRooms: () -> Unit,
     onMoveRoom: (roomKey: Int, targetRoomKey: Int) -> Unit,
@@ -71,48 +57,35 @@ fun DevicesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text(uiState.houseName.ifBlank { "Home" }, style = MaterialTheme.typography.titleLarge)
-                        if (uiState.userName.isNotBlank()) {
-                            Text(
-                                "Signed in as ${uiState.userName}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
+                title = { Text("Sensors", style = MaterialTheme.typography.titleLarge) },
                 actions = {
                     IconButton(onClick = onRefresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                    }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Log out")
                     }
                 },
             )
         },
     ) { padding ->
+        val sensorItems = uiState.sensorDisplayItemsByRoom
         when {
             uiState.isLoading && uiState.devices.isEmpty() -> LoadingState(modifier = Modifier.padding(padding))
             uiState.errorMessage != null && uiState.devices.isEmpty() ->
                 ErrorState(message = uiState.errorMessage, onRetry = onRefresh, modifier = Modifier.padding(padding))
-            uiState.devices.isEmpty() ->
-                EmptyState(message = "No devices found on this hub yet.", modifier = Modifier.padding(padding))
+            sensorItems.isEmpty() ->
+                EmptyState(message = "No sensor-only devices on this hub yet.", modifier = Modifier.padding(padding))
             else ->
                 DeviceRoomGrid(
-                    itemsByRoom = uiState.homeDisplayItemsByRoom,
+                    itemsByRoom = sensorItems,
                     roomsById = uiState.rooms.associateBy { it.id },
                     collapsedRoomIds = uiState.collapsedRoomIds,
                     recentlyFiredDeviceIds = uiState.recentlyFiredDeviceIds,
                     modifier = Modifier.padding(padding),
                     onOpenDeviceDetail = onOpenDeviceDetail,
-                    onToggleBinaryOutput = onToggleBinaryOutput,
-                    onFirePulse = onFirePulse,
-                    onShutterTap = onShutterTap,
-                    onDimmerTap = onDimmerTap,
-                    onGroupedTap = onGroupedTap,
+                    onToggleBinaryOutput = {},
+                    onFirePulse = {},
+                    onShutterTap = {},
+                    onDimmerTap = {},
+                    onGroupedTap = {},
                     onToggleRoomCollapsed = onToggleRoomCollapsed,
                     onToggleAllRooms = onToggleAllRooms,
                     onMoveRoom = onMoveRoom,

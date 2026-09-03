@@ -34,7 +34,10 @@ sealed interface DeviceDisplayItem {
 private enum class NameRole { STATE, OPEN_ACTION, CLOSE_ACTION }
 
 // Case-insensitive leading-word prefixes, Portuguese. Extend this list if new naming shows up.
-private val OPEN_PREFIXES = listOf("Abrir", "Abertura")
+// A lone toggle relay (e.g. a light's "On/Off" pulse) has no separate open/close counterpart, so
+// it's treated as an OPEN_ACTION: the single-action branch of onGroupedTap() just fires whichever
+// action is present, regardless of role, which is exactly the toggle behavior it needs.
+private val OPEN_PREFIXES = listOf("Abrir", "Abertura", "On/Off", "Ligar/Desligar")
 private val CLOSE_PREFIXES = listOf("Fechar", "Fecho")
 private val STATE_PREFIXES = listOf("Sensor", "Estado")
 
@@ -123,6 +126,22 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
     }
     return result
 }
+
+/**
+ * True for a display item with no tap action of its own — a plain read-only sensor (door contact,
+ * humidity reading, pulse counter, ...) that isn't a [DeviceDisplayItem.Grouped] item's state with
+ * an attached pulse relay. Drives the Home/Sensors tab split: these items move to the Sensors tab
+ * instead of Home. Mirrors the tile-rendering rule in `DeviceRoomGrid`'s `DeviceCell` (the "else ->
+ * ReadOnly" branch) and its `onClick` dispatch rule.
+ */
+val DeviceDisplayItem.isActionlessSensor: Boolean
+    get() {
+        val hasOwnAction =
+            primary is Device.BinaryOutput || primary is Device.Pulse ||
+                primary is Device.Shutter || primary is Device.Dimmer
+        val hasGroupedAction = this is DeviceDisplayItem.Grouped && (openAction != null || closeAction != null)
+        return !hasOwnAction && !hasGroupedAction
+    }
 
 /**
  * Generic "is this device currently open/on/active" used for the grouped tile's smart-toggle tap

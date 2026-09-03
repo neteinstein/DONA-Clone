@@ -14,3 +14,15 @@ class SetRoomsExpandedByDefaultUseCase(
 ) {
     suspend operator fun invoke(expanded: Boolean) = repository.setRoomsExpandedByDefault(expanded)
 }
+
+class ObserveRoomOrderUseCase(
+    private val repository: RoomsDisplayRepository,
+) {
+    operator fun invoke(): Flow<List<Int>> = repository.observeRoomOrder()
+}
+
+class SetRoomOrderUseCase(
+    private val repository: RoomsDisplayRepository,
+) {
+    suspend operator fun invoke(order: List<Int>) = repository.setRoomOrder(order)
+}

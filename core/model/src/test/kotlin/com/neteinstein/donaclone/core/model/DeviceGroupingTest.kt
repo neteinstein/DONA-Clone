@@ -72,6 +72,22 @@ class DeviceGroupingTest {
     }
 
     @Test
+    fun `balcony light merges with its On-Off toggle relay`() {
+        val light = Device.BinaryOutput(id = 1, name = "Luz Varanda", roomId = ROOM_A, isOn = false)
+        val toggle = Device.Pulse(id = 2, name = "On/Off Luz Varanda", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
+
+        val result = groupDevices(listOf(light, toggle))
+
+        assertEquals(1, result.size)
+        val grouped = result.single() as DeviceDisplayItem.Grouped
+        assertEquals("Luz Varanda", grouped.displayName)
+        assertEquals(light, grouped.primary)
+        assertEquals(toggle, grouped.openAction)
+        assertNull(grouped.closeAction)
+        assertNull(grouped.secondary)
+    }
+
+    @Test
     fun `open action with no state sibling stays solo`() {
         val opener = Device.Pulse(id = 1, name = "Abrir Portão", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
 
@@ -113,6 +129,40 @@ class DeviceGroupingTest {
         val solo = result.single() as DeviceDisplayItem.Solo
         assertEquals(thermostat, solo.primary)
         assertEquals("Temperatura sala", solo.displayName)
+    }
+
+    @Test
+    fun `a solo read-only sensor is an actionless sensor`() {
+        val sensor = Device.BinaryInput(id = 1, name = "Sensor Fumo", roomId = ROOM_A, isActive = false)
+
+        assertTrue(DeviceDisplayItem.Solo(sensor).isActionlessSensor)
+    }
+
+    @Test
+    fun `a solo actionable device is not an actionless sensor`() {
+        val light = Device.BinaryOutput(id = 1, name = "Luz", roomId = ROOM_A, isOn = true)
+
+        assertTrue(!DeviceDisplayItem.Solo(light).isActionlessSensor)
+    }
+
+    @Test
+    fun `a grouped sensor with an attached pulse relay is not an actionless sensor`() {
+        val sensor = Device.BinaryInput(id = 1, name = "Sensor Porta Pedonal", roomId = ROOM_A, isActive = false)
+        val opener = Device.Pulse(id = 2, name = "Abertura Porta Pedonal", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
+
+        val grouped = groupDevices(listOf(sensor, opener)).single() as DeviceDisplayItem.Grouped
+
+        assertTrue(!grouped.isActionlessSensor)
+    }
+
+    @Test
+    fun `a grouped on-off light with only a hidden numeric reading is not an actionless sensor`() {
+        val onOff = Device.BinaryOutput(id = 1, name = "Focos exteriores", roomId = ROOM_A, isOn = true)
+        val intensity = Device.AnalogInput(id = 2, name = "Focos exteriores", roomId = ROOM_A, value = 0.0)
+
+        val grouped = groupDevices(listOf(onOff, intensity)).single() as DeviceDisplayItem.Grouped
+
+        assertTrue(!grouped.isActionlessSensor)
     }
 
     @Test

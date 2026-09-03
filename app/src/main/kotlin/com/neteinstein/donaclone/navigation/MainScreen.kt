@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,22 +38,24 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.neteinstein.donaclone.feature.ambiences.AmbiencesRoute
 import com.neteinstein.donaclone.feature.devices.DevicesRoute
+import com.neteinstein.donaclone.feature.devices.SensorsRoute
 import com.neteinstein.donaclone.feature.settings.SettingsRoute
 
-/** The 3 Google-Home-style bottom nav destinations hosted inside [MainScreen]. */
+/** The 4 Google-Home-style bottom nav destinations hosted inside [MainScreen]. */
 enum class TopLevelDestination(
     val route: String,
     val label: String,
     val icon: ImageVector,
 ) {
     HOME("home", "Home", Icons.Filled.Home),
+    SENSORS("sensors", "Sensors", Icons.Filled.Sensors),
     AUTOMATIONS("automations", "Automations", Icons.Filled.PlayCircle),
     SETTINGS("settings", "Settings", Icons.Filled.Settings),
 }
 
 /**
  * The post-login shell: a persistent bottom [DonaBottomBar] over a nested [NavHost], mirroring
- * Google Home's Home/Automations/Settings tabs. Each tab keeps its own back stack/scroll state
+ * Google Home's Home/Sensors/Automations/Settings tabs. Each tab keeps its own back stack/scroll state
  * via [androidx.navigation.NavOptionsBuilder.saveState]/`restoreState`. [DEVICE_DETAIL] is
  * deliberately not one of these tabs — it's pushed on the outer [DonaNavHost] instead, full
  * screen over the bottom nav.
@@ -89,6 +92,9 @@ fun MainScreen(
         ) {
             composable(TopLevelDestination.HOME.route) {
                 DevicesRoute(onOpenDeviceDetail = onOpenDeviceDetail, onLoggedOut = onLoggedOut)
+            }
+            composable(TopLevelDestination.SENSORS.route) {
+                SensorsRoute(onOpenDeviceDetail = onOpenDeviceDetail)
             }
             composable(TopLevelDestination.AUTOMATIONS.route) {
                 AmbiencesRoute()

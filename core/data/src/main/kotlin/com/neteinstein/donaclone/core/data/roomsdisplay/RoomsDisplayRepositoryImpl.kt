@@ -11,4 +11,8 @@ class RoomsDisplayRepositoryImpl(
 
     override suspend fun setRoomsExpandedByDefault(expanded: Boolean) =
         roomsDisplayPreferences.setRoomsExpandedByDefault(expanded)
+
+    override fun observeRoomOrder(): Flow<List<Int>> = roomsDisplayPreferences.roomOrder
+
+    override suspend fun setRoomOrder(order: List<Int>) = roomsDisplayPreferences.setRoomOrder(order)
 }

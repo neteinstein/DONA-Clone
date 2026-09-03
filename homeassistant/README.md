@@ -58,23 +58,14 @@ everything else — no polling.
 ## Enabling Google Home voice control
 
 Once the hub's devices show up as Home Assistant entities, turning on Google
-Home is entirely Home Assistant/Google configuration — no more code needed.
+Home is entirely Home Assistant/Google configuration — no more code needed:
+either a few clicks via Home Assistant Cloud (Nabu Casa), or, if you're
+self-hosting, Home Assistant's built-in `google_assistant` integration with
+your own Google Cloud project.
 
-**If you use Home Assistant Cloud (Nabu Casa):**
-1. Settings → Home Assistant Cloud → enable "Google Assistant".
-2. Choose which entities/areas to expose (or expose everything).
-3. In the Google Home app: **Add → Set up device → Works with Google →
-   search for "Home Assistant"** and link your account.
-
-That's it — voice commands work immediately, and Nabu Casa handles the
-account linking and cloud fulfillment for you.
-
-**If you're self-hosting (no Nabu Casa):** use Home Assistant's built-in
-[`google_assistant`](https://www.home-assistant.io/integrations/google_assistant/)
-integration instead. It needs a public HTTPS endpoint reachable by Google and
-a Google Actions/Cloud project you register yourself — more setup, but still
-entirely Home Assistant/Google-side configuration; see the linked docs for
-the exact steps.
+See **[`Google_Home_Config.md`](Google_Home_Config.md)** for the full,
+step-by-step walkthrough of both paths, plus a testing checklist and
+troubleshooting tips.
 
 ## Known limitations
 

@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.neteinstein.donaclone.core.database.DonaDatabase
+import com.neteinstein.donaclone.core.database.prefs.BiometricPreferences
 import com.neteinstein.donaclone.core.database.prefs.SessionPreferences
+import com.neteinstein.donaclone.core.database.prefs.ThemePreferences
+import com.neteinstein.donaclone.core.database.security.CredentialCipher
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -13,8 +16,14 @@ private val Context.sessionDataStore by preferencesDataStore(name = "session_pre
 val databaseModule =
     module {
         single {
-            Room.databaseBuilder(androidContext(), DonaDatabase::class.java, DonaDatabase.DATABASE_NAME).build()
+            Room
+                .databaseBuilder(androidContext(), DonaDatabase::class.java, DonaDatabase.DATABASE_NAME)
+                .addMigrations(DonaDatabase.MIGRATION_1_2)
+                .build()
         }
         single { get<DonaDatabase>().houseDao() }
         single { SessionPreferences(androidContext().sessionDataStore) }
+        single { ThemePreferences(androidContext().sessionDataStore) }
+        single { BiometricPreferences(androidContext().sessionDataStore) }
+        single { CredentialCipher() }
     }

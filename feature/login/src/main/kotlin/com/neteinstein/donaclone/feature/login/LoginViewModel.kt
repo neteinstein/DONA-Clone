@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.model.House
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,12 +23,17 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val loginSucceeded: Boolean = false,
+    val biometricEnabled: Boolean = false,
+    /** Shown once, right after a successful password login, when biometric unlock isn't on yet. */
+    val showBiometricOptInPrompt: Boolean = false,
 )
 
 class LoginViewModel(
     private val observeHouses: ObserveHousesUseCase,
     private val getActiveHouse: GetActiveHouseUseCase,
     private val login: LoginUseCase,
+    observeBiometricEnabled: ObserveBiometricEnabledUseCase,
+    private val setBiometricEnabled: SetBiometricEnabledUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -46,6 +53,9 @@ class LoginViewModel(
         }
         viewModelScope.launch {
             getActiveHouse()?.let { selectHouse(it) }
+        }
+        viewModelScope.launch {
+            observeBiometricEnabled().collect { enabled -> _uiState.update { it.copy(biometricEnabled = enabled) } }
         }
     }
 
@@ -68,7 +78,14 @@ class LoginViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             when (val result = login.invoke(credentials)) {
-                is DonaResult.Success -> _uiState.update { it.copy(isLoading = false, loginSucceeded = true) }
+                is DonaResult.Success ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            loginSucceeded = true,
+                            showBiometricOptInPrompt = !it.biometricEnabled,
+                        )
+                    }
                 is DonaResult.Error ->
                     _uiState.update {
                         it.copy(isLoading = false, errorMessage = result.failure.message ?: "Could not log in")
@@ -79,6 +96,11 @@ class LoginViewModel(
 
     fun consumeLoginSucceeded() {
         _uiState.update { it.copy(loginSucceeded = false) }
+    }
+
+    fun onBiometricOptInResult(enable: Boolean) {
+        if (enable) viewModelScope.launch { setBiometricEnabled(true) }
+        _uiState.update { it.copy(showBiometricOptInPrompt = false) }
     }
 
     private fun LoginUiState.withPrefilledCredentials(): LoginUiState =

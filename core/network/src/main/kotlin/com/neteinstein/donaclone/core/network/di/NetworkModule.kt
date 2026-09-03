@@ -2,6 +2,7 @@ package com.neteinstein.donaclone.core.network.di
 
 import com.neteinstein.donaclone.core.network.api.DomotalkApi
 import com.neteinstein.donaclone.core.network.api.DomotalkApiImpl
+import com.neteinstein.donaclone.core.network.connectivity.ConnectivityObserver
 import com.neteinstein.donaclone.core.network.discovery.DiscoveryClient
 import com.neteinstein.donaclone.core.network.discovery.UdpDiscoveryClient
 import com.neteinstein.donaclone.core.network.socket.DomotalkSocket
@@ -23,4 +24,5 @@ val networkModule =
         single { DomotalkSocket(okHttpClient = get(), json = get()) }
         single<DomotalkApi> { DomotalkApiImpl(socket = get(), json = get()) }
         single<DiscoveryClient> { UdpDiscoveryClient() }
+        single { ConnectivityObserver(get()) }
     }

@@ -43,3 +43,15 @@ class GetCurrentSessionUseCase(
 ) {
     operator fun invoke(): AuthSession? = repository.currentSession
 }
+
+class RetryConnectionUseCase(
+    private val repository: AuthRepository,
+) {
+    suspend operator fun invoke(): DonaResult<Unit> = repository.retryConnection()
+}
+
+class ObserveDpuUnreachableUseCase(
+    private val repository: AuthRepository,
+) {
+    operator fun invoke(): StateFlow<Boolean> = repository.dpuUnreachable
+}

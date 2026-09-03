@@ -34,7 +34,10 @@ sealed interface DeviceDisplayItem {
 private enum class NameRole { STATE, OPEN_ACTION, CLOSE_ACTION }
 
 // Case-insensitive leading-word prefixes, Portuguese. Extend this list if new naming shows up.
-private val OPEN_PREFIXES = listOf("Abrir", "Abertura")
+// A lone toggle relay (e.g. a light's "On/Off" pulse) has no separate open/close counterpart, so
+// it's treated as an OPEN_ACTION: the single-action branch of onGroupedTap() just fires whichever
+// action is present, regardless of role, which is exactly the toggle behavior it needs.
+private val OPEN_PREFIXES = listOf("Abrir", "Abertura", "On/Off", "Ligar/Desligar")
 private val CLOSE_PREFIXES = listOf("Fechar", "Fecho")
 private val STATE_PREFIXES = listOf("Sensor", "Estado")
 
@@ -101,12 +104,20 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
                 .filter { it !== primaryParsed }
                 .map { it.device }
                 .firstOrNull { it is Device.AnalogInput || it is Device.Counter }
+        val openAction = group.firstOrNull { it.role == NameRole.OPEN_ACTION }?.device as? Device.Pulse
+        val closeAction = group.firstOrNull { it.role == NameRole.CLOSE_ACTION }?.device as? Device.Pulse
+
+        if (secondary == null && openAction == null && closeAction == null) {
+            // Nothing to actually attach to the state device — e.g. two same-type switches that
+            // merely happen to share an exact name. Don't wrap primaryParsed in a no-op Grouped
+            // item; leave every device in the group as its own independent Solo item.
+            group.forEach { result += DeviceDisplayItem.Solo(it.device) }
+            return@forEach
+        }
+
         stateCandidates
             .filter { it !== primaryParsed && it.device.id != secondary?.id }
             .forEach { result += DeviceDisplayItem.Solo(it.device) } // any other duplicate stays untouched
-
-        val openAction = group.firstOrNull { it.role == NameRole.OPEN_ACTION }?.device as? Device.Pulse
-        val closeAction = group.firstOrNull { it.role == NameRole.CLOSE_ACTION }?.device as? Device.Pulse
         group.filter { it.role == NameRole.OPEN_ACTION && it.device !== openAction }
             .forEach { result += DeviceDisplayItem.Solo(it.device) } // extra duplicates, don't drop
         group.filter { it.role == NameRole.CLOSE_ACTION && it.device !== closeAction }
@@ -123,6 +134,22 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
     }
     return result
 }
+
+/**
+ * True for a display item with no tap action of its own — a plain read-only sensor (door contact,
+ * humidity reading, pulse counter, ...) that isn't a [DeviceDisplayItem.Grouped] item's state with
+ * an attached pulse relay. Drives the Home/Sensors tab split: these items move to the Sensors tab
+ * instead of Home. Mirrors the tile-rendering rule in `DeviceRoomGrid`'s `DeviceCell` (the "else ->
+ * ReadOnly" branch) and its `onClick` dispatch rule.
+ */
+val DeviceDisplayItem.isActionlessSensor: Boolean
+    get() {
+        val hasOwnAction =
+            primary is Device.BinaryOutput || primary is Device.Pulse ||
+                primary is Device.Shutter || primary is Device.Dimmer
+        val hasGroupedAction = this is DeviceDisplayItem.Grouped && (openAction != null || closeAction != null)
+        return !hasOwnAction && !hasGroupedAction
+    }
 
 /**
  * Generic "is this device currently open/on/active" used for the grouped tile's smart-toggle tap

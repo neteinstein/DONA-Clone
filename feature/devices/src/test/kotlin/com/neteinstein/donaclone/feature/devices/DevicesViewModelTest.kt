@@ -7,12 +7,15 @@ import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceCommand
 import com.neteinstein.donaclone.core.model.DeviceUpdate
+import com.neteinstein.donaclone.core.model.Division
 import com.neteinstein.donaclone.core.model.PulseKind
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -44,6 +47,8 @@ class DevicesViewModelTest {
     private val logout = mockk<LogoutUseCase>()
     private val observeRoomsExpandedByDefault = mockk<ObserveRoomsExpandedByDefaultUseCase>()
     private val setRoomsExpandedByDefault = mockk<SetRoomsExpandedByDefaultUseCase>()
+    private val observeRoomOrder = mockk<ObserveRoomOrderUseCase>()
+    private val setRoomOrder = mockk<SetRoomOrderUseCase>()
     private val updates = MutableSharedFlow<DeviceUpdate>()
 
     private val light = Device.BinaryOutput(id = 1, name = "Kitchen light", isOn = false)
@@ -59,6 +64,8 @@ class DevicesViewModelTest {
         every { getCurrentSession() } returns null
         every { observeRoomsExpandedByDefault() } returns flowOf(true)
         coEvery { setRoomsExpandedByDefault(any()) } returns Unit
+        every { observeRoomOrder() } returns flowOf(emptyList())
+        coEvery { setRoomOrder(any()) } returns Unit
     }
 
     @After
@@ -76,6 +83,8 @@ class DevicesViewModelTest {
             logout,
             observeRoomsExpandedByDefault,
             setRoomsExpandedByDefault,
+            observeRoomOrder,
+            setRoomOrder,
         )
 
     @Test
@@ -148,5 +157,51 @@ class DevicesViewModelTest {
 
             dispatcher.scheduler.advanceUntilIdle()
             assertTrue(3 !in viewModel.uiState.value.recentlyFiredDeviceIds)
+        }
+
+    @Test
+    fun `an actionless sensor shows on the Sensors tab, not the Home tab`() =
+        runTest(dispatcher) {
+            val sensor = Device.BinaryInput(id = 4, name = "Sensor Fumo", isActive = false)
+            coEvery { getDevices() } returns DonaResult.Success(listOf(light, sensor))
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.homeDisplayItemsByRoom.values.flatten().none { it.primary.id == 4 })
+            assertTrue(state.sensorDisplayItemsByRoom.values.flatten().any { it.primary.id == 4 })
+            assertTrue(state.homeDisplayItemsByRoom.values.flatten().any { it.primary.id == 1 })
+        }
+
+    @Test
+    fun `rooms default to alphabetical order until the user reorders them`() =
+        runTest(dispatcher) {
+            val kitchen = Device.BinaryOutput(id = 5, name = "Kitchen plug", roomId = 20, isOn = false)
+            val attic = Device.BinaryOutput(id = 6, name = "Attic plug", roomId = 10, isOn = false)
+            coEvery { getRooms() } returns
+                DonaResult.Success(listOf(Division(id = 20, name = "Kitchen", floor = null), Division(id = 10, name = "Attic", floor = null)))
+            coEvery { getDevices() } returns DonaResult.Success(listOf(kitchen, attic))
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf(10, 20), viewModel.uiState.value.roomOrder)
+        }
+
+    @Test
+    fun `dragging a room persists the custom order`() =
+        runTest(dispatcher) {
+            val kitchen = Device.BinaryOutput(id = 5, name = "Kitchen plug", roomId = 20, isOn = false)
+            val attic = Device.BinaryOutput(id = 6, name = "Attic plug", roomId = 10, isOn = false)
+            coEvery { getRooms() } returns
+                DonaResult.Success(listOf(Division(id = 20, name = "Kitchen", floor = null), Division(id = 10, name = "Attic", floor = null)))
+            coEvery { getDevices() } returns DonaResult.Success(listOf(kitchen, attic))
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.onMoveRoom(roomKey = 20, targetRoomKey = 10)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf(20, 10), viewModel.uiState.value.roomOrder)
+            coVerify { setRoomOrder(listOf(20, 10)) }
         }
 }

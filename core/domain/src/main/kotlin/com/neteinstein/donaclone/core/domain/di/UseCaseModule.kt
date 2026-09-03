@@ -14,6 +14,7 @@ import com.neteinstein.donaclone.core.domain.usecase.ObserveConnectivityUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDpuUnreachableUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
@@ -22,6 +23,7 @@ import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.TriggerAmbienceUseCase
@@ -59,4 +61,6 @@ val useCaseModule =
         factoryOf(::ObserveConnectivityUseCase)
         factoryOf(::ObserveRoomsExpandedByDefaultUseCase)
         factoryOf(::SetRoomsExpandedByDefaultUseCase)
+        factoryOf(::ObserveRoomOrderUseCase)
+        factoryOf(::SetRoomOrderUseCase)
     }

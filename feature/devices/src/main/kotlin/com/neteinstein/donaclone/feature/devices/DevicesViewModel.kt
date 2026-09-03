@@ -8,8 +8,10 @@ import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceCommand
@@ -17,6 +19,7 @@ import com.neteinstein.donaclone.core.model.DeviceDisplayItem
 import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
 import com.neteinstein.donaclone.core.model.groupDevices
+import com.neteinstein.donaclone.core.model.isActionlessSensor
 import com.neteinstein.donaclone.core.model.isDeviceOpenOrOn
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,15 +46,47 @@ data class DevicesUiState(
      * device kind (locks, sirens, ...) the hub never reports a persisted on/off state for. */
     val recentlyFiredDeviceIds: Set<Int> = emptySet(),
     val collapsedRoomIds: Set<Int> = emptySet(),
+    /** The user's drag-to-reorder room/category order, as persisted — empty until they've ever
+     * dragged one. Room ids the user never placed (new to the hub, or dragged before they existed)
+     * fall back to alphabetical order, appended after whatever the user did place — see
+     * [roomOrder]. Shared by the Home and Sensors tabs so a room stays in the same relative
+     * position on both. */
+    val customRoomOrder: List<Int> = emptyList(),
 ) {
-    val displayItemsByRoom: Map<Int?, List<DeviceDisplayItem>>
-        get() = groupDevices(devices).groupBy { it.primary.roomId }
-
-    val allRoomsCollapsed: Boolean
+    /** Every room/category currently in use (room ids, plus [UNASSIGNED_ROOM_KEY]), in display
+     * order: the user's own [customRoomOrder] first, then anything they haven't placed yet in
+     * alphabetical-by-name order. */
+    val roomOrder: List<Int>
         get() {
-            val keys = displayItemsByRoom.keys.map { it ?: UNASSIGNED_ROOM_KEY }.toSet()
-            return keys.isNotEmpty() && keys.all { it in collapsedRoomIds }
+            val presentKeys = groupDevices(devices).map { it.primary.roomId ?: UNASSIGNED_ROOM_KEY }.toSet()
+            val roomNames = rooms.associate { it.id to it.name } + (UNASSIGNED_ROOM_KEY to "Unassigned")
+            val alphabetical = presentKeys.sortedBy { roomNames[it]?.lowercase() ?: "" }
+            val customPresent = customRoomOrder.filter { it in presentKeys }
+            return customPresent + alphabetical.filterNot { it in customPresent }
         }
+
+    /** Home tab: every display item with a tap action of its own, grouped by room and ordered per
+     * [roomOrder]. Actionless sensors live on the Sensors tab instead — see [sensorDisplayItemsByRoom]. */
+    val homeDisplayItemsByRoom: Map<Int, List<DeviceDisplayItem>>
+        get() = itemsByRoomInOrder { !it.isActionlessSensor }
+
+    /** Sensors tab: read-only sensors with no action of their own (a door contact, a humidity
+     * reading, ...), grouped by room and ordered per [roomOrder]. */
+    val sensorDisplayItemsByRoom: Map<Int, List<DeviceDisplayItem>>
+        get() = itemsByRoomInOrder { it.isActionlessSensor }
+
+    private fun itemsByRoomInOrder(predicate: (DeviceDisplayItem) -> Boolean): Map<Int, List<DeviceDisplayItem>> {
+        val grouped =
+            groupDevices(devices)
+                .filter(predicate)
+                .groupBy { it.primary.roomId ?: UNASSIGNED_ROOM_KEY }
+        return roomOrder.mapNotNull { key -> grouped[key]?.let { key to it } }.toMap()
+    }
+
+    fun allRoomsCollapsed(itemsByRoom: Map<Int, List<DeviceDisplayItem>>): Boolean {
+        val keys = itemsByRoom.keys
+        return keys.isNotEmpty() && keys.all { it in collapsedRoomIds }
+    }
 }
 
 class DevicesViewModel(
@@ -63,6 +98,8 @@ class DevicesViewModel(
     private val logout: LogoutUseCase,
     private val observeRoomsExpandedByDefault: ObserveRoomsExpandedByDefaultUseCase,
     private val setRoomsExpandedByDefault: SetRoomsExpandedByDefaultUseCase,
+    private val observeRoomOrder: ObserveRoomOrderUseCase,
+    private val setRoomOrder: SetRoomOrderUseCase,
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -82,6 +119,10 @@ class DevicesViewModel(
                 _uiState.update { it.copy(devices = it.devices.map { device -> device.withUpdate(update) }) }
                 rememberNonZeroDimmerPercentage(update)
             }
+        }
+        viewModelScope.launch {
+            val persistedOrder = observeRoomOrder().first()
+            _uiState.update { it.copy(customRoomOrder = persistedOrder) }
         }
     }
 
@@ -111,7 +152,7 @@ class DevicesViewModel(
                 hasSeededCollapseState = true
                 val expandedByDefault = observeRoomsExpandedByDefault().first()
                 _uiState.update { state ->
-                    val keys = state.displayItemsByRoom.keys.map { it ?: UNASSIGNED_ROOM_KEY }.toSet()
+                    val keys = state.roomOrder.toSet()
                     state.copy(collapsedRoomIds = if (expandedByDefault) emptySet() else keys)
                 }
             }
@@ -189,18 +230,43 @@ class DevicesViewModel(
         }
     }
 
-    /** Collapses every room if any is currently expanded, otherwise expands every room — a simple
-     * binary "expand all / collapse all" toggle. The resulting all-open/all-closed state is
-     * persisted as the default for the next time the Home tab is opened fresh. */
-    fun toggleAllRooms() {
+    /** Collapses every room shown on this tab if any is currently expanded, otherwise expands
+     * every room — a simple binary "expand all / collapse all" toggle for [itemsByRoom] (the
+     * calling screen's own [DevicesUiState.homeDisplayItemsByRoom] or
+     * [DevicesUiState.sensorDisplayItemsByRoom]). The resulting all-open/all-closed state is
+     * persisted as the default for the next time either tab is opened fresh. */
+    fun toggleAllRooms(itemsByRoom: Map<Int, List<DeviceDisplayItem>>) {
         val target =
-            if (_uiState.value.allRoomsCollapsed) {
+            if (_uiState.value.allRoomsCollapsed(itemsByRoom)) {
                 emptySet()
             } else {
-                _uiState.value.displayItemsByRoom.keys.map { it ?: UNASSIGNED_ROOM_KEY }.toSet()
+                itemsByRoom.keys
             }
         _uiState.update { it.copy(collapsedRoomIds = target) }
         viewModelScope.launch { setRoomsExpandedByDefault(target.isEmpty()) }
+    }
+
+    /** Drag-to-reorder for a room/category section header: moves [roomKey] to sit immediately
+     * next to [targetRoomKey] in the shared room order, then persists it. Both keys must already
+     * be present in [DevicesUiState.roomOrder] (room ids, or [UNASSIGNED_ROOM_KEY]); a stale or
+     * unknown key is a no-op. */
+    fun onMoveRoom(
+        roomKey: Int,
+        targetRoomKey: Int,
+    ) {
+        if (roomKey == targetRoomKey) return
+        val currentOrder = _uiState.value.roomOrder
+        val fromIndex = currentOrder.indexOf(roomKey)
+        val targetIndex = currentOrder.indexOf(targetRoomKey)
+        if (fromIndex == -1 || targetIndex == -1) return
+
+        val reordered = currentOrder.toMutableList()
+        reordered.removeAt(fromIndex)
+        val insertAt = reordered.indexOf(targetRoomKey) + if (fromIndex < targetIndex) 1 else 0
+        reordered.add(insertAt, roomKey)
+
+        _uiState.update { it.copy(customRoomOrder = reordered) }
+        viewModelScope.launch { setRoomOrder(reordered) }
     }
 
     fun logout() {

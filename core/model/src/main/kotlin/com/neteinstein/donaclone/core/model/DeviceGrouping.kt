@@ -41,6 +41,14 @@ private val OPEN_PREFIXES = listOf("Abrir", "Abertura", "On/Off", "Ligar/Desliga
 private val CLOSE_PREFIXES = listOf("Fechar", "Fecho")
 private val STATE_PREFIXES = listOf("Sensor", "Estado")
 
+// Subset of OPEN_PREFIXES naming a redundant on/off *toggle* for something that already has its
+// own independent control (a light's "On/Off" relay next to its own BinaryOutput/Dimmer), as
+// opposed to a directional "Abrir"/"Abertura" action a shutter/gate has no other way to fire.
+private val TOGGLE_PREFIXES = listOf("On/Off", "Ligar/Desligar")
+
+private fun isToggleName(name: String): Boolean =
+    TOGGLE_PREFIXES.any { name.trim().startsWith("$it ", ignoreCase = true) }
+
 private fun parseName(name: String): Pair<String, NameRole> {
     val trimmed = name.trim()
 
@@ -109,14 +117,27 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
                 .filter { it !== primaryParsed }
                 .map { it.device }
                 .firstOrNull { it is Device.AnalogInput || it is Device.Counter }
-        val openAction = group.firstOrNull { it.role == NameRole.OPEN_ACTION }?.device as? Device.Pulse
-        val closeAction = group.firstOrNull { it.role == NameRole.CLOSE_ACTION }?.device as? Device.Pulse
+        val openActionCandidate = group.firstOrNull { it.role == NameRole.OPEN_ACTION }
+        val closeActionCandidate = group.firstOrNull { it.role == NameRole.CLOSE_ACTION }
+        val openAction = openActionCandidate?.device as? Device.Pulse
+        val closeAction = closeActionCandidate?.device as? Device.Pulse
 
         if (secondary == null && openAction == null && closeAction == null) {
-            // Nothing to actually attach to the state device — e.g. two same-type switches that
-            // merely happen to share an exact name. Don't wrap primaryParsed in a no-op Grouped
-            // item; leave every device in the group as its own independent Solo item.
-            group.forEach { result += DeviceDisplayItem.Solo(it.device) }
+            // A same-named "On/Off"/"Ligar-Desligar" toggle relay that couldn't be wired as an
+            // action (it isn't a Device.Pulse) is presumed a redundant, non-functional duplicate
+            // of a state device that's already independently controllable on its own (a light's
+            // own BinaryOutput/Dimmer) — showing it as a second tile would just be dead clutter,
+            // so it's dropped instead of kept. A genuine directional "Abrir"/"Fechar" action of
+            // the wrong type is left alone (below) since that one has no other way to be fired.
+            val isRedundantToggle =
+                (primaryParsed.device is Device.BinaryOutput || primaryParsed.device is Device.Dimmer) &&
+                    openActionCandidate?.let { isToggleName(it.device.name) } == true
+            if (!isRedundantToggle) {
+                group.forEach { result += DeviceDisplayItem.Solo(it.device) }
+                return@forEach
+            }
+            result += DeviceDisplayItem.Solo(primaryParsed.device)
+            stateCandidates.filter { it !== primaryParsed }.forEach { result += DeviceDisplayItem.Solo(it.device) }
             return@forEach
         }
 

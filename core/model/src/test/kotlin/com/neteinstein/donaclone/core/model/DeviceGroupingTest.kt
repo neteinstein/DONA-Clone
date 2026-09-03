@@ -88,6 +88,30 @@ class DeviceGroupingTest {
     }
 
     @Test
+    fun `a light's redundant On-Off toggle of the wrong device type is dropped, not shown as its own tile`() {
+        val light = Device.BinaryOutput(id = 1, name = "Luz Cozinha", roomId = ROOM_A, isOn = true)
+        val unusedToggle = Device.BinaryOutput(id = 2, name = "On/Off Luz Cozinha", roomId = ROOM_A, isOn = false)
+
+        val result = groupDevices(listOf(light, unusedToggle))
+
+        assertEquals(1, result.size)
+        val solo = result.single() as DeviceDisplayItem.Solo
+        assertEquals(light, solo.primary)
+    }
+
+    @Test
+    fun `a mistyped directional open action is kept, not dropped, since it has no other way to fire`() {
+        val sensor = Device.BinaryInput(id = 1, name = "Estore Cozinha", roomId = ROOM_A, isActive = false)
+        val opener = Device.BinaryOutput(id = 2, name = "Abrir Estore Cozinha", roomId = ROOM_A, isOn = false)
+
+        val result = groupDevices(listOf(sensor, opener))
+
+        assertEquals(2, result.size)
+        assertTrue(result.all { it is DeviceDisplayItem.Solo })
+        assertTrue(result.any { it.primary === opener })
+    }
+
+    @Test
     fun `open action with no state sibling stays solo`() {
         val opener = Device.Pulse(id = 1, name = "Abrir Portão", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
 

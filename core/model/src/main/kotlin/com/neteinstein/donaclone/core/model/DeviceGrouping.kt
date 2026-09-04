@@ -1,5 +1,7 @@
 package com.neteinstein.donaclone.core.model
 
+import java.text.Normalizer
+
 /**
  * What a Home-tab tile (and the detail screen) actually renders: either one raw [Device]
  * untouched, or several raw devices the hub reports separately that are really one physical
@@ -62,6 +64,26 @@ private fun parseName(name: String): Pair<String, NameRole> {
     return trimmed to NameRole.STATE // no recognized prefix — treat the whole name as the base, state role
 }
 
+// Portuguese connector words (articles/prepositions) that show up inconsistently between how a
+// state device and its action siblings got named on the hub — e.g. "Abertura Portão Garagem" vs
+// "Portão da Garagem". Stripped only for the purposes of matching a shared base name, never from
+// the displayed name itself.
+private val CONNECTOR_WORDS = setOf("da", "de", "do", "das", "dos")
+
+/** Case/accent/connector-word-insensitive key for matching a base name across differently-worded
+ * hub names for the same physical thing (e.g. "portão garagem" and "portao da garagem" both
+ * normalize to "portao garagem"). Used only as a grouping key — [DeviceDisplayItem.displayName]
+ * always keeps the original wording. */
+private fun normalizeForMatching(name: String): String {
+    val withoutAccents =
+        Normalizer.normalize(name, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+    return withoutAccents
+        .lowercase()
+        .split(Regex("\\s+"))
+        .filter { it.isNotEmpty() && it !in CONNECTOR_WORDS }
+        .joinToString(" ")
+}
+
 /** True when [name] is recognized as an open/close/toggle action by [OPEN_PREFIXES]/[CLOSE_PREFIXES]
  * — e.g. "Abrir Estore Cozinha", "Fechar Portão". Such a device is a command the user fires, never a
  * passive reading, regardless of what raw [Device] subtype the hub happened to report it as. */
@@ -95,7 +117,7 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
         }
     val result = mutableListOf<DeviceDisplayItem>()
 
-    parsed.groupBy { it.device.roomId to it.baseName.lowercase() }.values.forEach { group ->
+    parsed.groupBy { it.device.roomId to normalizeForMatching(it.baseName) }.values.forEach { group ->
         if (group.size == 1) {
             result += DeviceDisplayItem.Solo(group.single().device)
             return@forEach

@@ -245,7 +245,7 @@ private fun MorphingLoginButton(
         label = "login-button-corner",
     )
 
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val circleSize = 48.dp
         val widthFraction by animateFloatAsState(
             targetValue = if (collapsed) (circleSize / maxWidth) else 1f,

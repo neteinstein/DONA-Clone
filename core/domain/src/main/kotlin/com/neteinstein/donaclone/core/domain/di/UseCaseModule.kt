@@ -1,12 +1,17 @@
 package com.neteinstein.donaclone.core.domain.di
 
+import com.neteinstein.donaclone.core.domain.usecase.CanInstallUpdatesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.CheckForUpdateUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ClearDownloadedUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DeleteHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
@@ -18,6 +23,7 @@ import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
+import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
@@ -63,4 +69,11 @@ val useCaseModule =
         factoryOf(::SetRoomsExpandedByDefaultUseCase)
         factoryOf(::ObserveRoomOrderUseCase)
         factoryOf(::SetRoomOrderUseCase)
+
+        factoryOf(::CheckForUpdateUseCase)
+        factoryOf(::DownloadUpdateUseCase)
+        factoryOf(::ClearDownloadedUpdateUseCase)
+        factoryOf(::CanInstallUpdatesUseCase)
+        factoryOf(::InstallUpdateUseCase)
+        factoryOf(::OpenInstallPermissionSettingsUseCase)
     }

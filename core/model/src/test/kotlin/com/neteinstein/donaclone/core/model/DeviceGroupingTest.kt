@@ -26,6 +26,22 @@ class DeviceGroupingTest {
     }
 
     @Test
+    fun `garage gate merges despite accent and connector-word differences in naming`() {
+        val sensor = Device.BinaryInput(id = 1, name = "portao da garagem", roomId = ROOM_A, isActive = false)
+        val opener = Device.Pulse(id = 2, name = "Abertura portão garagem", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
+
+        val result = groupDevices(listOf(sensor, opener))
+
+        assertEquals(1, result.size)
+        val grouped = result.single() as DeviceDisplayItem.Grouped
+        assertEquals("portao da garagem", grouped.displayName)
+        assertEquals(sensor, grouped.primary)
+        assertEquals(opener, grouped.openAction)
+        assertNull(grouped.closeAction)
+        assertNull(grouped.secondary)
+    }
+
+    @Test
     fun `exterior lights merges on off with its unused intensity reading`() {
         val onOff = Device.BinaryOutput(id = 1, name = "Focos exteriores", roomId = ROOM_A, isOn = true)
         val intensity = Device.AnalogInput(id = 2, name = "Focos exteriores", roomId = ROOM_A, value = 0.0)

@@ -4,6 +4,7 @@ import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.network.socket.DomotalkException
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
 
 fun Throwable.toDonaFailure(): DonaFailure =
     when (this) {
@@ -11,6 +12,8 @@ fun Throwable.toDonaFailure(): DonaFailure =
         is DomotalkException.RequestTimeout, is DomotalkException.ConnectionLost ->
             DonaFailure.Unreachable(message, this)
         is DomotalkException.MalformedResponse -> DonaFailure.UnexpectedResponse(message, this)
+        // Not DPU-specific - covers e.g. UpdateRepositoryImpl's plain OkHttp calls to GitHub.
+        is IOException -> DonaFailure.Unreachable(message, this)
         else -> DonaFailure.Unknown(message, this)
     }
 

@@ -1,0 +1,136 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify release signing secrets are configured
+        run: |
+          # app/build.gradle.kts silently falls back to debug signing when KEYSTORE_FILE isn't
+          # set, which lets `./gradlew assembleRelease` still work on a dev machine. But on this
+          # ephemeral GitHub Actions runner that fallback creates a brand-new, random debug
+          # keystore on every single run (there's no persisted ~/.android/debug.keystore to
+          # reuse) - so each GitHub Release APK ends up signed with a *different* certificate.
+          # Android refuses to install an update whose signing certificate doesn't match the
+          # currently-installed app's, so the in-app "Update to latest" flow
+          # (UpdateRepositoryImpl/UpdateInstallerImpl) always downloads fine and then always
+          # fails to install. Fail loudly here instead of silently publishing another broken
+          # update.
+          if [ -z "${{ secrets.KEYSTORE_FILE }}" ]; then
+            echo "::error::KEYSTORE_FILE (and KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD) repository secrets are not set. Without them, this workflow falls back to a fresh debug keystore on every run, so each release gets a different signing certificate and in-app updates fail to install. Add the real signing secrets under Settings > Secrets and variables > Actions before releasing."
+            exit 1
+          fi
+
+      - name: Build and Sign APK
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION_NAME=$(grep 'versionName = ' app/build.gradle.kts | \
+            head -n1 | sed -E 's/.*versionName = "(.*)"/\1/')
+          BUILD_NUMBER=${{ github.run_number }}
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          # Version string in MAJOR.MINOR.PATCH.BUILD format - the in-app update check
+          # (UpdateRepositoryImpl) parses the trailing segment back out as the version code.
+          VERSION_WITH_BUILD="${VERSION_NAME}.${BUILD_NUMBER}"
+          echo "version_with_build=${VERSION_WITH_BUILD}" >> $GITHUB_OUTPUT
+          TAG="v${VERSION_WITH_BUILD}"
+          echo "release_tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        id: rename
+        run: |
+          # Check if the signed APK exists, otherwise fall back to the unsigned one.
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            SRC="app/build/outputs/apk/release/app-release.apk"
+            SUFFIX="signed"
+          else
+            SRC="app/build/outputs/apk/release/app-release-unsigned.apk"
+            SUFFIX="unsigned"
+          fi
+          VERSION="${{ steps.version.outputs.version_with_build }}"
+          DEST="app/build/outputs/apk/release/DonaClone-${VERSION}-${SUFFIX}.apk"
+          mv "${SRC}" "${DEST}"
+          echo "apk_suffix=${SUFFIX}" >> $GITHUB_OUTPUT
+
+      - name: Get certificate fingerprint
+        id: cert
+        run: |
+          APK="app/build/outputs/apk/release/DonaClone-${{ steps.version.outputs.version_with_build }}-${{ steps.rename.outputs.apk_suffix }}.apk"
+          # app/build.gradle.kts sets minSdk 30, so AGP disables APK Signature Scheme v1
+          # (JAR signing) by default and signs release APKs with v2/v3 only. keytool only
+          # understands v1 signatures, so `keytool -printcert -jarfile` silently reports "Not a
+          # signed jar file" on this APK. apksigner understands every APK signing scheme, so use
+          # it instead.
+          APKSIGNER=$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)/apksigner
+          FINGERPRINT=$("${APKSIGNER}" verify --print-certs "${APK}" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n1)
+          if [ -z "${FINGERPRINT}" ]; then
+            echo "::error::Failed to extract the SHA-256 certificate fingerprint from ${APK}."
+            exit 1
+          fi
+          echo "sha256_fingerprint=${FINGERPRINT}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          name: >
+            Release ${{ steps.version.outputs.version_with_build }}
+          body: |
+            ## DONA-Clone Release ${{ steps.version.outputs.version_with_build }}
+
+            Version: ${{ steps.version.outputs.version_name }}
+            Build number: ${{ steps.version.outputs.build_number }}
+            Built from commit: ${{ github.sha }}
+
+            ### Installation
+            Download the APK file below and install it on your Android device, or use the
+            "Update to latest" button on the app's Settings screen once a previous build is
+            already installed.
+
+            ### Verify the APK signature
+            Signing certificate SHA-256 fingerprint:
+            ```
+            ${{ steps.cert.outputs.sha256_fingerprint }}
+            ```
+            Compare this against the output of `apksigner verify --print-certs DonaClone-*.apk`
+            before installing, to confirm the APK was signed with the same certificate as the
+            currently installed app.
+
+            ### Requirements
+            - Android 11 (API 30) or higher
+          files: |
+            app/build/outputs/apk/release/DonaClone-${{ steps.version.outputs.version_with_build }}-${{ steps.rename.outputs.apk_suffix }}.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          append_body: true

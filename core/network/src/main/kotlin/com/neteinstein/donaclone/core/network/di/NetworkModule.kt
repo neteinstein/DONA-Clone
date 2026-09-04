@@ -1,5 +1,6 @@
 package com.neteinstein.donaclone.core.network.di
 
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.neteinstein.donaclone.core.network.api.DomotalkApi
 import com.neteinstein.donaclone.core.network.api.DomotalkApiImpl
 import com.neteinstein.donaclone.core.network.api.GitHubApi
@@ -13,7 +14,6 @@ import okhttp3.OkHttpClient
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 private const val GITHUB_API_BASE_URL = "https://api.github.com/"
 private const val GITHUB_QUALIFIER = "github"
@@ -60,4 +60,3 @@ val networkModule =
                 .create(GitHubApi::class.java)
         }
     }
-

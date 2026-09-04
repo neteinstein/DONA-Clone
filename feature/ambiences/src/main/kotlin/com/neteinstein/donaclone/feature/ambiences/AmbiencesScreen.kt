@@ -8,9 +8,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -29,13 +31,17 @@ import com.neteinstein.donaclone.core.model.Ambience
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun AmbiencesRoute(viewModel: AmbiencesViewModel = koinViewModel()) {
+fun AmbiencesRoute(
+    onCreateAutomation: () -> Unit,
+    viewModel: AmbiencesViewModel = koinViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsState()
 
     AmbiencesScreen(
         uiState = uiState,
         onRefresh = viewModel::refresh,
         onToggle = viewModel::toggle,
+        onCreateAutomation = onCreateAutomation,
     )
 }
 
@@ -45,6 +51,7 @@ fun AmbiencesScreen(
     uiState: AmbiencesUiState,
     onRefresh: () -> Unit,
     onToggle: (Ambience) -> Unit,
+    onCreateAutomation: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -56,6 +63,11 @@ fun AmbiencesScreen(
                     }
                 },
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onCreateAutomation) {
+                Icon(Icons.Filled.Add, contentDescription = "Create automation")
+            }
         },
     ) { padding ->
         when {

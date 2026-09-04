@@ -19,6 +19,7 @@ import androidx.navigation.navArgument
 import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
 import com.neteinstein.donaclone.core.model.SessionStatus
+import com.neteinstein.donaclone.feature.ambiences.AutomationEditorRoute
 import com.neteinstein.donaclone.feature.devices.DeviceDetailRoute
 import com.neteinstein.donaclone.feature.houses.HousesRoute
 import com.neteinstein.donaclone.feature.login.LoginRoute
@@ -30,6 +31,7 @@ object DonaDestinations {
     const val MAIN = "main"
     const val DEVICE_DETAIL_ARG = "deviceId"
     const val DEVICE_DETAIL = "device_detail/{$DEVICE_DETAIL_ARG}"
+    const val AUTOMATION_EDITOR = "automation_editor"
 
     fun deviceDetailRoute(deviceId: Int) = "device_detail/$deviceId"
 }
@@ -47,7 +49,8 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
     LaunchedEffect(sessionState, backStackEntry) {
         val onAuthenticatedRoute =
             backStackEntry?.destination?.route?.let { route ->
-                route == DonaDestinations.MAIN || route == DonaDestinations.DEVICE_DETAIL
+                route == DonaDestinations.MAIN || route == DonaDestinations.DEVICE_DETAIL ||
+                    route == DonaDestinations.AUTOMATION_EDITOR
             } == true
         if (sessionState == SessionStatus.DISCONNECTED && onAuthenticatedRoute) {
             navigateToLogin(navController)
@@ -90,6 +93,7 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
                 },
                 onOpenHouses = { navController.navigate(DonaDestinations.HOUSES) },
                 onLoggedOut = { navigateToLogin(navController) },
+                onCreateAutomation = { navController.navigate(DonaDestinations.AUTOMATION_EDITOR) },
             )
         }
 
@@ -99,6 +103,10 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
         ) { backStack ->
             val deviceId = backStack.arguments?.getInt(DonaDestinations.DEVICE_DETAIL_ARG) ?: return@composable
             DeviceDetailRoute(deviceId = deviceId, onBack = { navController.popBackStack() })
+        }
+
+        composable(DonaDestinations.AUTOMATION_EDITOR) {
+            AutomationEditorRoute(onDone = { navController.popBackStack() })
         }
     }
 }

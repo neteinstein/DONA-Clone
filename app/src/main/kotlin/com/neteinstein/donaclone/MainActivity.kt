@@ -77,7 +77,9 @@ class MainActivity : FragmentActivity() {
                     }
                 }
                 // Shows the banner whenever needed; re-shows immediately after a failed manual
-                // Retry (the flag stays true) without waiting for a fresh state change.
+                // Retry (the flag stays true) without waiting for a fresh state change. A manual
+                // dismiss silences it until connectivity actually recovers (showConnectivityBanner
+                // goes false), rather than re-showing on the very next loop iteration.
                 LaunchedEffect(snackbarHostState) {
                     while (true) {
                         viewModel.uiState.first { it.showConnectivityBanner }
@@ -85,10 +87,13 @@ class MainActivity : FragmentActivity() {
                             snackbarHostState.showSnackbar(
                                 message = "Can't reach your home hub",
                                 actionLabel = "Retry",
+                                withDismissAction = true,
                                 duration = SnackbarDuration.Indefinite,
                             )
                         if (result == SnackbarResult.ActionPerformed) {
                             viewModel.retryConnectionNow()
+                        } else {
+                            viewModel.uiState.first { !it.showConnectivityBanner }
                         }
                     }
                 }

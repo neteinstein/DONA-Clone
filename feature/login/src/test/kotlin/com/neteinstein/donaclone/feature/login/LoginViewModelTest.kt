@@ -152,4 +152,55 @@ class LoginViewModelTest {
             coVerify { setBiometricEnabled(true) }
             assertFalse(viewModel.uiState.value.showBiometricOptInPrompt)
         }
+
+    @Test
+    fun `resuming after a failed login with credentials retries automatically`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
+            viewModel.login()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("Wrong password", viewModel.uiState.value.errorMessage)
+
+            val session = AuthSession(token = "t", userId = 1, userName = "alice", houseName = "Home")
+            coEvery { login.invoke(any()) } returns DonaResult.Success(session)
+            viewModel.retryLoginIfNeeded()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify(exactly = 2) { login.invoke(any()) }
+            assertTrue(viewModel.uiState.value.loginSucceeded)
+            assertNull(viewModel.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `resuming without a prior failure does not retry`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.retryLoginIfNeeded()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify(exactly = 0) { login.invoke(any()) }
+        }
+
+    @Test
+    fun `resuming after a failure without credentials does not retry`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            // Clear the pre-filled credentials before the failing attempt, so the resulting error
+            // state has blank fields (each change also clears any stale error message).
+            viewModel.onUsernameChange("")
+            viewModel.onPasswordChange("")
+            coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
+            viewModel.login()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.retryLoginIfNeeded()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify(exactly = 1) { login.invoke(any()) }
+        }
 }

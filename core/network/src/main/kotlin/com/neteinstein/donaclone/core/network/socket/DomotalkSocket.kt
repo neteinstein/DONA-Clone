@@ -174,20 +174,40 @@ class DomotalkSocket(
                 put("callback_id", JsonPrimitive(callbackId))
             }
 
-        val sent = socket.send(json.encodeToString(JsonObject.serializer(), payload))
+        val encodedPayload = json.encodeToString(JsonObject.serializer(), payload)
+        Timber.tag(LOG_TAG).d("-> [%d] %s/%s %s", callbackId, verb, subject, loggableBodyFor(subject, payload))
+
+        val sent = socket.send(encodedPayload)
         if (!sent) {
             pending.remove(callbackId)
+            Timber.tag(LOG_TAG).w("-> [%d] %s/%s not sent: socket not connected", callbackId, verb, subject)
             throw DomotalkException.NotConnected()
         }
 
         return try {
-            withTimeout(timeoutMillis) { deferred.await() }.let(::extractPayload)
+            val response = withTimeout(timeoutMillis) { deferred.await() }
+            Timber.tag(LOG_TAG).d("<- [%d] %s", callbackId, loggableBodyFor(subject, response))
+            response.let(::extractPayload)
         } catch (e: TimeoutCancellationException) {
+            Timber.tag(LOG_TAG).w("<- [%d] %s/%s timed out after %dms", callbackId, verb, subject, timeoutMillis)
             throw DomotalkException.RequestTimeout(verb, subject)
         } finally {
             pending.remove(callbackId)
         }
     }
+
+    /**
+     * The `session` subject (login, session resume/renewal, logout - see [DomotalkApiImpl]) is the
+     * only place this protocol carries a password hash or an auth token, both in the outgoing
+     * `options` and in what comes back. Never write either to Logcat, even with Debug Mode/logging
+     * enabled - redact the whole body instead of trying to pick out individual fields, since the
+     * response's `payload` is sometimes a JSON-encoded string rather than a real nested object
+     * (see [extractPayload]) and can't be reliably field-redacted.
+     */
+    private fun loggableBodyFor(
+        subject: String,
+        body: JsonObject,
+    ): String = if (subject == SUBJECT_SESSION) "<redacted: $SUBJECT_SESSION>" else body.toString()
 
     private fun handleMessage(text: String) {
         val element = runCatching { json.parseToJsonElement(text) }.getOrNull()
@@ -198,6 +218,7 @@ class DomotalkSocket(
         if (deferred != null) {
             deferred.complete(obj)
         } else {
+            Timber.tag(LOG_TAG).d("<- (push) %s", obj)
             if (!_updates.tryEmit(obj)) {
                 Timber.w("Dropped a domotalk push update: buffer full")
             }
@@ -233,6 +254,8 @@ class DomotalkSocket(
         const val DEFAULT_REQUEST_TIMEOUT_MILLIS = 10_000L
         const val CALLBACK_ID_WRAP = 10_000
         const val NORMAL_CLOSURE_CODE = 1000
+        private const val LOG_TAG = "DomotalkSocket"
+        private const val SUBJECT_SESSION = "session"
 
         fun defaultOkHttpClient(
             pingIntervalMillis: Long = 2000L,

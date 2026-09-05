@@ -10,9 +10,11 @@ import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.model.AppUpdate
 import com.neteinstein.donaclone.core.model.AuthSession
@@ -52,12 +54,15 @@ class SettingsViewModelTest {
     private val canInstallUpdates = mockk<CanInstallUpdatesUseCase>()
     private val installUpdate = mockk<InstallUpdateUseCase>()
     private val openInstallPermissionSettings = mockk<OpenInstallPermissionSettingsUseCase>()
+    private val observeDebugModeEnabled = mockk<ObserveDebugModeUseCase>()
+    private val setDebugModeEnabled = mockk<SetDebugModeUseCase>()
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         every { observeThemeMode() } returns flowOf(ThemeMode.SYSTEM)
         every { observeBiometricEnabled() } returns flowOf(false)
+        every { observeDebugModeEnabled() } returns flowOf(false)
     }
 
     @After
@@ -78,6 +83,8 @@ class SettingsViewModelTest {
             canInstallUpdates,
             installUpdate,
             openInstallPermissionSettings,
+            observeDebugModeEnabled,
+            setDebugModeEnabled,
         )
 
     @Test
@@ -208,6 +215,20 @@ class SettingsViewModelTest {
 
             assertEquals(UpdateStatus.SideloadingBlocked, viewModel.uiState.value.updateStatus)
             coVerify(exactly = 0) { downloadUpdate(any()) }
+        }
+
+    @Test
+    fun `debug mode is off by default and toggling it persists the new value`() =
+        runTest(dispatcher) {
+            every { getCurrentSession() } returns null
+            coEvery { setDebugModeEnabled(true) } just Runs
+            val viewModel = createViewModel()
+
+            assertEquals(false, viewModel.uiState.value.debugModeEnabled)
+            viewModel.onDebugModeChanged(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { setDebugModeEnabled(true) }
         }
 
     @Test

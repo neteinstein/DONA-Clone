@@ -42,11 +42,12 @@ class AuditLogRepositoryImpl(
         field: String,
         operation: String,
         value: Number,
-    ) = buildJsonObject {
-        put("field", JsonPrimitive(field))
-        put("operation", JsonPrimitive(operation))
-        put("value", JsonPrimitive(value))
-    }
+    ) =
+        buildJsonObject {
+            put("field", JsonPrimitive(field))
+            put("operation", JsonPrimitive(operation))
+            put("value", JsonPrimitive(value))
+        }
 
     private fun MasterLogEntryDto.toDomain() =
         AuditLogEntry(

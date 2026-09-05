@@ -21,7 +21,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -157,9 +156,10 @@ private fun AuditLogFilters(
 
 @Composable
 private fun AuditLogList(entries: List<AuditLogEntry>) {
-    val formatter = remember {
-        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withZone(ZoneOffset.systemDefault())
-    }
+    val formatter =
+        remember {
+            DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withZone(ZoneOffset.systemDefault())
+        }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(entries, key = AuditLogEntry::id) { entry ->

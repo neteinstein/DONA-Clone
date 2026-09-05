@@ -1,7 +1,6 @@
 package com.neteinstein.donaclone.feature.settings
 
 import androidx.biometric.BiometricManager
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -90,7 +90,31 @@ fun SettingsScreen(
         }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            uiState.houseName.ifBlank { "No house selected" },
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Text(
+                            "Signed in as ${uiState.userName.ifBlank { "unknown" }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onManageHouses) {
+                        Icon(Icons.Filled.Home, contentDescription = "Manage houses")
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Log out")
+                    }
+                },
+            )
+        },
     ) { padding ->
         Column(
             modifier =
@@ -98,20 +122,6 @@ fun SettingsScreen(
                     .padding(padding)
                     .fillMaxSize(),
         ) {
-            ListItem(
-                headlineContent = { Text(uiState.houseName.ifBlank { "No house selected" }) },
-                supportingContent = { Text("Signed in as ${uiState.userName.ifBlank { "unknown" }}") },
-                leadingContent = { Icon(Icons.Filled.Home, contentDescription = null) },
-            )
-            ListItem(
-                headlineContent = { Text("Manage houses") },
-                supportingContent = { Text("Add, edit or remove connection profiles") },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onManageHouses),
-            )
-
             SectionHeader("Appearance")
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 ThemeMode.entries.forEachIndexed { index, mode ->
@@ -141,22 +151,6 @@ fun SettingsScreen(
                 status = uiState.updateStatus,
                 onUpdateClicked = onUpdateClicked,
                 onEnableSideloadingClicked = onEnableSideloadingClicked,
-            )
-
-            ListItem(
-                headlineContent = { Text("Log out", color = MaterialTheme.colorScheme.error) },
-                leadingContent = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clickable(onClick = onLogout),
             )
         }
     }

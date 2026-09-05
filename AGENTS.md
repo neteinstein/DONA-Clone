@@ -159,6 +159,10 @@ minutes) plus a second commit per issue — this has been the single most common
 of throwaway "fix compile error" / "fix ktlint violation" follow-up commits in this
 repo's history. Fix everything locally, then push once.
 
+A Claude Code agent working in this repo should invoke the `verify` skill (see
+`.claude/skills/verify/`) to run this gate and triage failures against the pitfalls
+below, rather than declaring a change done without running it.
+
 ## Common pitfalls (bugs that have recurred more than once)
 
 - **Smart-cast lost across a property with a custom getter or receiver.** Kotlin only

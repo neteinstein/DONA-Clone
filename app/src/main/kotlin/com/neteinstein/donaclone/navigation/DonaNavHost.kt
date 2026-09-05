@@ -32,8 +32,12 @@ object DonaDestinations {
     const val DEVICE_DETAIL_ARG = "deviceId"
     const val DEVICE_DETAIL = "device_detail/{$DEVICE_DETAIL_ARG}"
     const val AUTOMATION_EDITOR = "automation_editor"
+    const val AUTOMATION_DETAIL_ARG = "ambienceId"
+    const val AUTOMATION_DETAIL = "automation_detail/{$AUTOMATION_DETAIL_ARG}"
 
     fun deviceDetailRoute(deviceId: Int) = "device_detail/$deviceId"
+
+    fun automationDetailRoute(ambienceId: Int) = "automation_detail/$ambienceId"
 }
 
 @Composable
@@ -50,7 +54,7 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
         val onAuthenticatedRoute =
             backStackEntry?.destination?.route?.let { route ->
                 route == DonaDestinations.MAIN || route == DonaDestinations.DEVICE_DETAIL ||
-                    route == DonaDestinations.AUTOMATION_EDITOR
+                    route == DonaDestinations.AUTOMATION_EDITOR || route == DonaDestinations.AUTOMATION_DETAIL
             } == true
         if (sessionState == SessionStatus.DISCONNECTED && onAuthenticatedRoute) {
             navigateToLogin(navController)
@@ -94,6 +98,9 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
                 onOpenHouses = { navController.navigate(DonaDestinations.HOUSES) },
                 onLoggedOut = { navigateToLogin(navController) },
                 onCreateAutomation = { navController.navigate(DonaDestinations.AUTOMATION_EDITOR) },
+                onOpenAutomationDetail = { ambienceId ->
+                    navController.navigate(DonaDestinations.automationDetailRoute(ambienceId))
+                },
             )
         }
 
@@ -107,6 +114,14 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
 
         composable(DonaDestinations.AUTOMATION_EDITOR) {
             AutomationEditorRoute(onDone = { navController.popBackStack() })
+        }
+
+        composable(
+            DonaDestinations.AUTOMATION_DETAIL,
+            arguments = listOf(navArgument(DonaDestinations.AUTOMATION_DETAIL_ARG) { type = NavType.IntType }),
+        ) { backStack ->
+            val ambienceId = backStack.arguments?.getInt(DonaDestinations.AUTOMATION_DETAIL_ARG) ?: return@composable
+            AutomationEditorRoute(ambienceId = ambienceId, onDone = { navController.popBackStack() })
         }
     }
 }

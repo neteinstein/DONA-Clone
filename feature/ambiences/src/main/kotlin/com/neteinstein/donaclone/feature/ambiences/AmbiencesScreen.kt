@@ -33,6 +33,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun AmbiencesRoute(
     onCreateAutomation: () -> Unit,
+    onOpenAutomationDetail: (Int) -> Unit,
     viewModel: AmbiencesViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -42,6 +43,7 @@ fun AmbiencesRoute(
         onRefresh = viewModel::refresh,
         onToggle = viewModel::toggle,
         onCreateAutomation = onCreateAutomation,
+        onOpenAutomationDetail = onOpenAutomationDetail,
     )
 }
 
@@ -52,6 +54,7 @@ fun AmbiencesScreen(
     onRefresh: () -> Unit,
     onToggle: (Ambience) -> Unit,
     onCreateAutomation: () -> Unit,
+    onOpenAutomationDetail: (Int) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -97,6 +100,7 @@ fun AmbiencesScreen(
                             icon = Icons.Filled.PlayCircle,
                             isPlaying = ambience.isPlaying,
                             onClick = { onToggle(ambience) },
+                            onLongClick = { onOpenAutomationDetail(ambience.id) },
                         )
                     }
                 }

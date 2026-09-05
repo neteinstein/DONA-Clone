@@ -6,7 +6,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,7 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** A tappable, pill-shaped scene tile; while [isPlaying] the icon pulses and the card tints
- * toward primary. */
+ * toward primary. A long press (e.g. to open the scene's details for editing) is optional via
+ * [onLongClick]. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SceneCard(
     name: String,
@@ -40,6 +43,7 @@ fun SceneCard(
     isPlaying: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val containerColor by animateColorAsState(
         targetValue =
@@ -64,7 +68,7 @@ fun SceneCard(
             modifier
                 .fillMaxWidth()
                 .height(72.dp)
-                .clickable(onClick = onClick),
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         shape = RoundedCornerShape(percent = 50),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {

@@ -6,10 +6,10 @@ import com.neteinstein.donaclone.core.model.AuditLogEntry
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
-import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.Instant
 
 class GetAuditLogUseCaseTest {
     private val repository = mockk<AuditLogRepository>()

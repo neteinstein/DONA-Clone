@@ -42,12 +42,12 @@ import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
 import com.neteinstein.donaclone.core.model.AuditLogEntry
+import org.koin.androidx.compose.koinViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun AuditLogRoute(

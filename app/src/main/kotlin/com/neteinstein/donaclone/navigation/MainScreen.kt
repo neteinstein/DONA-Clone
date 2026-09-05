@@ -7,11 +7,15 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayCircle
@@ -71,6 +75,10 @@ fun MainScreen(
     val innerNavController = rememberNavController()
 
     Scaffold(
+        // Each tab hosted below already handles its own top inset via its own Scaffold +
+        // TopAppBar — exclude the status bar here, or every tab's top bar ends up pushed down
+        // by its height a second time (mirrors the same fix in MainActivity's outer Scaffold).
+        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.statusBars),
         bottomBar = {
             val backStackEntry by innerNavController.currentBackStackEntryAsState()
             DonaBottomBar(

@@ -116,12 +116,18 @@ constructor parameters.
 - ViewModel tests must swap `Dispatchers.Main` for a `StandardTestDispatcher` in
   `@Before`/`@After` (see any `*ViewModelTest` for the pattern) — don't add
   `kotlinx-coroutines-android`'s real Main dispatcher to a unit test.
+- Most ViewModels kick off an `init { viewModelScope.launch { ... } }` load. On a
+  `StandardTestDispatcher` that coroutine has **not** run yet right after
+  `createViewModel()` returns, so a test that reads `uiState` immediately observes
+  the untouched default state, not the loaded one. Call
+  `dispatcher.scheduler.advanceUntilIdle()` (or drive it via `viewModel.uiState.test { }`
+  awaiting the loaded item) before asserting on or acting on post-load state.
 - Room DAOs are tested with Robolectric + an in-memory database (see
   `core/database/.../HouseDaoTest.kt`), not mocked.
-- Run `./gradlew test` locally before pushing. CI runs `testDebugUnitTest` on every
-  PR; `./gradlew koverHtmlReport` produces a browsable coverage report under
-  `build/reports/kover/`. There's no enforced minimum percentage yet — treat a drop
-  in coverage on a PR as a prompt to add tests, not a hard gate.
+- CI runs `testDebugUnitTest` on every PR (see "Before pushing" below for the full
+  local gate to run first); `./gradlew koverHtmlReport` produces a browsable coverage
+  report under `build/reports/kover/`. There's no enforced minimum percentage yet —
+  treat a drop in coverage on a PR as a prompt to add tests, not a hard gate.
 - Don't write tests against `com.winwel.dona.ui` reverse-engineering internals (there
   is no such dependency in this repo) — tests exercise *this* codebase's behavior only.
 
@@ -136,6 +142,46 @@ constructor parameters.
 - Both run as separate parallel CI jobs (`.github/workflows/android-ci.yml`) alongside
   compile and unit-tests, so a style nit never blocks discovering a real test failure
   or vice versa.
+
+## Before pushing / opening a PR
+
+Every one of these is a separate, parallel CI job — a failure in one doesn't stop the
+others from also having failed, so a change that only "compiles in your head" routinely
+comes back with 2-3 unrelated red jobs at once. Run all of them locally first:
+
+```
+./gradlew ktlintCheck lintDebug testDebugUnitTest assembleDebug
+```
+
+`ktlintFormat` autofixes most style violations before you even run the check. Treating
+this as optional and letting CI find the problem costs a full CI round-trip (several
+minutes) plus a second commit per issue — this has been the single most common source
+of throwaway "fix compile error" / "fix ktlint violation" follow-up commits in this
+repo's history. Fix everything locally, then push once.
+
+## Common pitfalls (bugs that have recurred more than once)
+
+- **Smart-cast lost across a property with a custom getter or receiver.** Kotlin only
+  smart-casts a `val` accessed directly (a local variable, or `this.x` inside the
+  declaring class) — `house.dns.isNullOrBlank()` followed by `house.dns` again later
+  does **not** carry the null-check through when `house` is a parameter/receiver of a
+  data class read from outside. Bind the property to a local `val` first
+  (`val dns = house.dns`), then null-check and use `dns`. This has broken the build
+  twice, once each in `core:data` (`AuthRepositoryImpl.connectionAttempts`) and
+  `feature:devices` (`DeviceDetailScreen`).
+- **`ExposedDropdownMenu` is not a top-level composable.** It's a member function of
+  `ExposedDropdownMenuBoxScope`, resolved via the implicit receiver inside an
+  `ExposedDropdownMenuBox { ... }` content lambda — importing
+  `androidx.compose.material3.ExposedDropdownMenu` compiles as an unused import and
+  then fails to resolve at the call site. Don't import it; call it bare inside the box's
+  lambda (see `LoginScreen.kt`'s `HouseDropdown` for the working pattern). This exact
+  mistake has been made twice, in two different screens.
+- **ktlint catches things the Kotlin compiler doesn't**, and it's easy to introduce
+  without noticing: import ordering (alphabetical, no grouping), a blank line required
+  before a nested function declaration, a file whose name must match the single
+  top-level class/object it declares, multi-line lambda braces needing their own line.
+  `ktlintFormat` fixes nearly all of these automatically — run it instead of hand-fixing
+  style nits.
 
 ## Protocol changes
 

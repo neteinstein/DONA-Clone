@@ -3,7 +3,6 @@ package com.neteinstein.donaclone.core.data.auditlog
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.network.api.DomotalkApi
 import com.neteinstein.donaclone.core.network.dto.MasterLogEntryDto
-import io.mockk.capture
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk

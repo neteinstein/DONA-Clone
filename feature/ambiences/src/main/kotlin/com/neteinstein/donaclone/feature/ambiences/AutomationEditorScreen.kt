@@ -64,11 +64,13 @@ import androidx.compose.ui.unit.dp
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.Division
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun AutomationEditorRoute(
     onDone: () -> Unit,
-    viewModel: AutomationEditorViewModel = koinViewModel(),
+    ambienceId: Int? = null,
+    viewModel: AutomationEditorViewModel = koinViewModel { parametersOf(ambienceId) },
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -87,10 +89,11 @@ fun AutomationEditorRoute(
 }
 
 /**
- * The "create a new automation" screen — name + enabled toggle up top, then the hub's own
- * Iniciadores/Ações/Condições/Finalizadores structure as four editable sections. Tapping a
- * section's "+" swaps the whole screen for [EntryConfigScreen] rather than pushing a nav
- * destination, since it's just refining state that lives in this same [AutomationEditorViewModel].
+ * The "create a new automation" / "view and edit an existing automation" screen — name + enabled
+ * toggle up top, then the hub's own Iniciadores/Ações/Condições/Finalizadores structure as four
+ * editable sections. Tapping a section's "+" swaps the whole screen for [EntryConfigScreen] rather
+ * than pushing a nav destination, since it's just refining state that lives in this same
+ * [AutomationEditorViewModel].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,7 +134,7 @@ fun AutomationEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New automation") },
+                title = { Text(if (uiState.isEditing) "Edit automation" else "New automation") },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Cancel") } },
             )
         },

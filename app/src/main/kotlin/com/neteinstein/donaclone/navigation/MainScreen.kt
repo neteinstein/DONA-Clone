@@ -66,6 +66,7 @@ fun MainScreen(
     onOpenHouses: () -> Unit,
     onLoggedOut: () -> Unit,
     onCreateAutomation: () -> Unit,
+    onOpenAutomationDetail: (Int) -> Unit,
 ) {
     val innerNavController = rememberNavController()
 
@@ -98,7 +99,10 @@ fun MainScreen(
                 SensorsRoute(onOpenDeviceDetail = onOpenDeviceDetail)
             }
             composable(TopLevelDestination.AUTOMATIONS.route) {
-                AmbiencesRoute(onCreateAutomation = onCreateAutomation)
+                AmbiencesRoute(
+                    onCreateAutomation = onCreateAutomation,
+                    onOpenAutomationDetail = onOpenAutomationDetail,
+                )
             }
             composable(TopLevelDestination.SETTINGS.route) {
                 SettingsRoute(onManageHouses = onOpenHouses, onLoggedOut = onLoggedOut)

@@ -1,8 +1,10 @@
 package com.neteinstein.donaclone.feature.ambiences
 
 import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.model.Ambience
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.Division
 import io.mockk.coEvery
@@ -26,6 +28,7 @@ class AutomationEditorViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val getRooms = mockk<GetRoomsUseCase>()
     private val getDevices = mockk<GetDevicesUseCase>()
+    private val getAmbiences = mockk<GetAmbiencesUseCase>()
 
     private val kitchen = Division(id = 1, name = "Kitchen", floor = 0)
     private val light = Device.BinaryOutput(id = 1, name = "Kitchen light", roomId = 1, isOn = false)
@@ -42,7 +45,7 @@ class AutomationEditorViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = AutomationEditorViewModel(getRooms, getDevices)
+    private fun createViewModel(ambienceId: Int? = null) = AutomationEditorViewModel(ambienceId, getRooms, getDevices, getAmbiences)
 
     @Test
     fun `a new draft cannot be saved without a name or a trigger`() =
@@ -105,5 +108,33 @@ class AutomationEditorViewModelTest {
 
             viewModel.consumeSaveMessage()
             assertNull(viewModel.uiState.value.saveMessage)
+        }
+
+    @Test
+    fun `opening with an ambienceId seeds the name and enabled state from the matching scene`() =
+        runTest(dispatcher) {
+            val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+
+            val viewModel = createViewModel(ambienceId = 7)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isEditing)
+            assertEquals("Movie night", state.name)
+            assertTrue(state.enabled)
+        }
+
+    @Test
+    fun `saving an edit surfaces a message distinct from creating a new automation`() =
+        runTest(dispatcher) {
+            val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+
+            val viewModel = createViewModel(ambienceId = 7)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.save()
+            assertTrue(viewModel.uiState.value.saveMessage.orEmpty().contains("Editing automations"))
         }
 }

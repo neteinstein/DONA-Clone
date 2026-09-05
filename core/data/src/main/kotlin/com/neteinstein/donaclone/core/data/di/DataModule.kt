@@ -1,6 +1,7 @@
 package com.neteinstein.donaclone.core.data.di
 
 import com.neteinstein.donaclone.core.data.ambience.AmbienceRepositoryImpl
+import com.neteinstein.donaclone.core.data.auditlog.AuditLogRepositoryImpl
 import com.neteinstein.donaclone.core.data.auth.AuthRepositoryImpl
 import com.neteinstein.donaclone.core.data.biometric.BiometricRepositoryImpl
 import com.neteinstein.donaclone.core.data.connectivity.ConnectivityRepositoryImpl
@@ -14,6 +15,7 @@ import com.neteinstein.donaclone.core.data.theme.ThemeRepositoryImpl
 import com.neteinstein.donaclone.core.data.update.UpdateInstallerImpl
 import com.neteinstein.donaclone.core.data.update.UpdateRepositoryImpl
 import com.neteinstein.donaclone.core.domain.repository.AmbienceRepository
+import com.neteinstein.donaclone.core.domain.repository.AuditLogRepository
 import com.neteinstein.donaclone.core.domain.repository.AuthRepository
 import com.neteinstein.donaclone.core.domain.repository.BiometricRepository
 import com.neteinstein.donaclone.core.domain.repository.ConnectivityRepository
@@ -48,6 +50,7 @@ val dataModule =
         }
         single<DeviceRepository> { DeviceRepositoryImpl(api = get()) }
         single<AmbienceRepository> { AmbienceRepositoryImpl(api = get()) }
+        single<AuditLogRepository> { AuditLogRepositoryImpl(api = get()) }
         single<ThemeRepository> { ThemeRepositoryImpl(themePreferences = get()) }
         single<BiometricRepository> { BiometricRepositoryImpl(biometricPreferences = get()) }
         single<DebugRepository> { DebugRepositoryImpl(debugPreferences = get()) }

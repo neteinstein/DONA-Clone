@@ -64,6 +64,7 @@ enum class TopLevelDestination(
 fun MainScreen(
     onOpenDeviceDetail: (Int) -> Unit,
     onOpenHouses: () -> Unit,
+    onOpenAuditLog: () -> Unit,
     onLoggedOut: () -> Unit,
     onCreateAutomation: () -> Unit,
     onOpenAutomationDetail: (Int) -> Unit,
@@ -105,7 +106,7 @@ fun MainScreen(
                 )
             }
             composable(TopLevelDestination.SETTINGS.route) {
-                SettingsRoute(onManageHouses = onOpenHouses, onLoggedOut = onLoggedOut)
+                SettingsRoute(onManageHouses = onOpenHouses, onOpenAuditLog = onOpenAuditLog, onLoggedOut = onLoggedOut)
             }
         }
     }

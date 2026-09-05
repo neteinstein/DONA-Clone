@@ -33,3 +33,18 @@ data class AmbienceDto(
     val isPlaying: Boolean = false,
     val enabled: Boolean = true,
 )
+
+/**
+ * One `masterLog` entry (`v4/f.java:76-99`). The hub's exact field list beyond the
+ * `objectId`/`date` pair used for filtering (§2.4) was not recoverable from decompiled code,
+ * so everything past those two is read defensively as nullable.
+ */
+@Serializable
+data class MasterLogEntryDto(
+    val id: Int = 0,
+    val objectId: Int? = null,
+    val date: Long = 0,
+    val type: Int? = null,
+    val description: String? = null,
+    val userId: Int? = null,
+)

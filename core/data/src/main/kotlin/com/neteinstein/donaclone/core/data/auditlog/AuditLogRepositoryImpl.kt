@@ -21,7 +21,7 @@ class AuditLogRepositoryImpl(
         to: Instant?,
     ): DonaResult<List<AuditLogEntry>> =
         donaResultCatching {
-            api.readMasterLog(filters = buildFilters(objectId, from, to)).map(MasterLogEntryDto::toDomain)
+            api.readMasterLog(filters = buildFilters(objectId, from, to)).map { it.toDomain() }
         }
 
     private fun buildFilters(

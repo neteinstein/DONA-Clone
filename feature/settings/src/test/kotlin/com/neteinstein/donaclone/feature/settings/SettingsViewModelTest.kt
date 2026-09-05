@@ -20,6 +20,7 @@ import com.neteinstein.donaclone.core.model.AppUpdate
 import com.neteinstein.donaclone.core.model.AuthSession
 import com.neteinstein.donaclone.core.model.ThemeMode
 import com.neteinstein.donaclone.core.model.UpdateAvailability
+import com.neteinstein.donaclone.core.model.UpdateStatus
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify

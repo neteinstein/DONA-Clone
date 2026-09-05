@@ -35,12 +35,14 @@ sealed interface DeviceDisplayItem {
 
 private enum class NameRole { STATE, OPEN_ACTION, CLOSE_ACTION }
 
-// Case-insensitive leading-word prefixes, Portuguese. Extend this list if new naming shows up.
+// Case-insensitive leading-word prefixes. The hub is observed to name devices in either
+// Portuguese or English depending on install — both are recognized. Extend these lists if new
+// naming shows up.
 // A lone toggle relay (e.g. a light's "On/Off" pulse) has no separate open/close counterpart, so
 // it's treated as an OPEN_ACTION: the single-action branch of onGroupedTap() just fires whichever
 // action is present, regardless of role, which is exactly the toggle behavior it needs.
-private val OPEN_PREFIXES = listOf("Abrir", "Abertura", "On/Off", "Ligar/Desligar")
-private val CLOSE_PREFIXES = listOf("Fechar", "Fecho")
+private val OPEN_PREFIXES = listOf("Abrir", "Abertura", "Open", "On/Off", "Ligar/Desligar")
+private val CLOSE_PREFIXES = listOf("Fechar", "Fecho", "Close")
 private val STATE_PREFIXES = listOf("Sensor", "Estado")
 
 // Subset of OPEN_PREFIXES naming a redundant on/off *toggle* for something that already has its
@@ -54,9 +56,15 @@ private fun isToggleName(name: String): Boolean =
 private fun parseName(name: String): Pair<String, NameRole> {
     val trimmed = name.trim()
 
+    // A recognized prefix is followed by a word boundary — a space, or a colon (with or without
+    // a following space, e.g. "Sensor: Entryway Door") — never bare concatenation.
     fun strip(prefixes: List<String>) =
         prefixes.firstNotNullOfOrNull { p ->
-            if (trimmed.startsWith("$p ", ignoreCase = true)) trimmed.substring(p.length).trim() else null
+            when {
+                trimmed.startsWith("$p ", ignoreCase = true) -> trimmed.substring(p.length).trim()
+                trimmed.startsWith("$p:", ignoreCase = true) -> trimmed.substring(p.length + 1).trim()
+                else -> null
+            }
         }
     strip(OPEN_PREFIXES)?.let { return it to NameRole.OPEN_ACTION }
     strip(CLOSE_PREFIXES)?.let { return it to NameRole.CLOSE_ACTION }
@@ -84,21 +92,22 @@ private fun normalizeForMatching(name: String): String {
         .joinToString(" ")
 }
 
-/** True when [name] is recognized as an open/close/toggle action by [OPEN_PREFIXES]/[CLOSE_PREFIXES]
- * — e.g. "Abrir Estore Cozinha", "Fechar Portão". Such a device is a command the user fires, never a
- * passive reading, regardless of what raw [Device] subtype the hub happened to report it as. */
-private fun isActionName(name: String): Boolean = parseName(name).second != NameRole.STATE
-
-/** Lower number = preferred as the group's primary/state device. */
+/**
+ * Lower number = preferred as the group's primary/state device. All deviceOut subtypes
+ * (Shutter/BinaryOutput/Pulse/Dimmer) always outrank any deviceIn reading, so a momentary
+ * output like a door striker (a plain-named [Device.Pulse], e.g. "Entryway Door") stays the
+ * group's primary even when paired with its own state-role sensor reading.
+ */
 private fun statePriority(device: Device): Int =
     when (device) {
         is Device.Shutter -> 0
         is Device.BinaryOutput -> 1
-        is Device.Dimmer -> 2
-        is Device.BinaryInput -> 3
-        is Device.AnalogInput -> 4
-        is Device.Counter -> 5
-        else -> 6
+        is Device.Pulse -> 2
+        is Device.Dimmer -> 3
+        is Device.BinaryInput -> 4
+        is Device.AnalogInput -> 5
+        is Device.Counter -> 6
+        else -> 7
     }
 
 /**
@@ -192,10 +201,13 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
  */
 val DeviceDisplayItem.isActionlessSensor: Boolean
     get() {
+        // "Own action" is judged purely by the primary's concrete deviceOut subtype, never by
+        // name — a solo deviceIn device (BinaryInput/AnalogInput/Counter) that never matched a
+        // deviceOut device stays an actionless sensor no matter what it's named, so it can only
+        // ever surface on the Sensors tab, never Home (Home shows deviceOut devices only).
         val hasOwnAction =
             primary is Device.BinaryOutput || primary is Device.Pulse ||
-                primary is Device.Shutter || primary is Device.Dimmer ||
-                isActionName(primary.name)
+                primary is Device.Shutter || primary is Device.Dimmer
         val hasGroupedAction = this is DeviceDisplayItem.Grouped && (openAction != null || closeAction != null)
         return !hasOwnAction && !hasGroupedAction
     }

@@ -88,6 +88,38 @@ class DeviceGroupingTest {
     }
 
     @Test
+    fun `kitchen blinds shutter merges with separate English Open and Close actions`() {
+        val shutter = Device.Shutter(id = 1, name = "Kitchen Blinds", roomId = ROOM_A, percentage = 0)
+        val opener = Device.Pulse(id = 2, name = "Open Kitchen Blinds", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
+        val closer = Device.Pulse(id = 3, name = "Close Kitchen Blinds", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
+
+        val result = groupDevices(listOf(shutter, opener, closer))
+
+        assertEquals(1, result.size)
+        val grouped = result.single() as DeviceDisplayItem.Grouped
+        assertEquals("Kitchen Blinds", grouped.displayName)
+        assertEquals(shutter, grouped.primary)
+        assertEquals(opener, grouped.openAction)
+        assertEquals(closer, grouped.closeAction)
+    }
+
+    @Test
+    fun `entryway door pulse merges with its colon-prefixed sensor reading`() {
+        val door = Device.Pulse(id = 1, name = "Entryway Door", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
+        val sensor = Device.AnalogInput(id = 2, name = "Sensor: Entryway Door", roomId = ROOM_A, value = 0.0)
+
+        val result = groupDevices(listOf(door, sensor))
+
+        assertEquals(1, result.size)
+        val grouped = result.single() as DeviceDisplayItem.Grouped
+        assertEquals("Entryway Door", grouped.displayName)
+        assertEquals(door, grouped.primary)
+        assertEquals(sensor, grouped.secondary)
+        assertNull(grouped.openAction)
+        assertNull(grouped.closeAction)
+    }
+
+    @Test
     fun `balcony light merges with its On-Off toggle relay`() {
         val light = Device.BinaryOutput(id = 1, name = "Luz Varanda", roomId = ROOM_A, isOn = false)
         val toggle = Device.Pulse(id = 2, name = "On/Off Luz Varanda", roomId = ROOM_A, kind = PulseKind.UNKNOWN)
@@ -172,6 +204,18 @@ class DeviceGroupingTest {
     }
 
     @Test
+    fun `an orphan deviceIn sensor with no matching deviceOut device in its room is an actionless sensor`() {
+        val waterSensor = Device.AnalogInput(id = 1, name = "Water Sensor: Kitchen", roomId = ROOM_A, value = 0.0)
+
+        val result = groupDevices(listOf(waterSensor))
+
+        assertEquals(1, result.size)
+        val solo = result.single() as DeviceDisplayItem.Solo
+        assertEquals(waterSensor, solo.primary)
+        assertTrue(solo.isActionlessSensor)
+    }
+
+    @Test
     fun `a solo read-only sensor is an actionless sensor`() {
         val sensor = Device.BinaryInput(id = 1, name = "Sensor Fumo", roomId = ROOM_A, isActive = false)
 
@@ -179,12 +223,16 @@ class DeviceGroupingTest {
     }
 
     @Test
-    fun `a solo device named as an open or close action is never an actionless sensor`() {
+    fun `a solo unmatched deviceIn device named as an action is still an actionless sensor`() {
+        // These never found a deviceOut device to pair with in the same room (see groupDevices),
+        // so despite looking like an "Abrir"/"Open" action by name, they're plain deviceIn
+        // readings with no way to actually fire anything — Home shows deviceOut devices only,
+        // so these belong on the Sensors tab, not Home, regardless of their name.
         val opener = Device.BinaryInput(id = 1, name = "Abrir Portão", roomId = ROOM_A, isActive = false)
-        val closer = Device.AnalogInput(id = 2, name = "Fechar Portão", roomId = ROOM_A, value = 0.0)
+        val closer = Device.AnalogInput(id = 2, name = "Close Bedroom Blinds", roomId = ROOM_A, value = 0.0)
 
-        assertTrue(!DeviceDisplayItem.Solo(opener).isActionlessSensor)
-        assertTrue(!DeviceDisplayItem.Solo(closer).isActionlessSensor)
+        assertTrue(DeviceDisplayItem.Solo(opener).isActionlessSensor)
+        assertTrue(DeviceDisplayItem.Solo(closer).isActionlessSensor)
     }
 
     @Test

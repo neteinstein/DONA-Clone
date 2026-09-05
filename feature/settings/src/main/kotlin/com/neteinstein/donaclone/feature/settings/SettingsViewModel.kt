@@ -10,49 +10,22 @@ import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.model.AppUpdate
 import com.neteinstein.donaclone.core.model.ThemeMode
 import com.neteinstein.donaclone.core.model.UpdateAvailability
+import com.neteinstein.donaclone.core.model.UpdateStatus
+import com.neteinstein.donaclone.core.model.toUpdateStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/**
- * Drives the "Update to latest" button and its status text on [SettingsScreen] - checks GitHub
- * Releases and, if allowed, downloads and installs a newer build. Mirrors the in-app update flow
- * from https://github.com/neteinstein/CompareApp.
- */
-sealed class UpdateStatus {
-    /** Nothing in flight - the button's normal resting state. */
-    data object Idle : UpdateStatus()
-
-    data object Checking : UpdateStatus()
-
-    /** The installed build is already the latest one published on GitHub Releases. */
-    data class UpToDate(val currentVersionName: String) : UpdateStatus()
-
-    /** A newer build exists and is ready to be downloaded/installed on button tap. */
-    data class UpdateAvailable(val update: AppUpdate) : UpdateStatus()
-
-    data object Downloading : UpdateStatus()
-
-    /**
-     * A newer release exists, but the OS won't let this app install it yet. [SettingsScreen] shows
-     * a warning banner whose action opens the system "install unknown apps" page for this app
-     * ([SettingsViewModel.onEnableSideloadingClicked]); the user is expected to tap
-     * "Update to latest" again afterwards, which re-checks and proceeds automatically now that the
-     * OS allows it.
-     */
-    data object SideloadingBlocked : UpdateStatus()
-
-    data class Failed(val message: String) : UpdateStatus()
-}
 
 data class SettingsUiState(
     val houseName: String = "",
@@ -61,6 +34,7 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val biometricEnabled: Boolean = false,
     val updateStatus: UpdateStatus = UpdateStatus.Idle,
+    val debugModeEnabled: Boolean = false,
 )
 
 class SettingsViewModel(
@@ -75,6 +49,8 @@ class SettingsViewModel(
     private val canInstallUpdates: CanInstallUpdatesUseCase,
     private val installUpdate: InstallUpdateUseCase,
     private val openInstallPermissionSettings: OpenInstallPermissionSettingsUseCase,
+    observeDebugModeEnabled: ObserveDebugModeUseCase,
+    private val setDebugModeEnabled: SetDebugModeUseCase,
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -89,6 +65,9 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             observeBiometricEnabled().collect { enabled -> _uiState.update { it.copy(biometricEnabled = enabled) } }
+        }
+        viewModelScope.launch {
+            observeDebugModeEnabled().collect { enabled -> _uiState.update { it.copy(debugModeEnabled = enabled) } }
         }
     }
 
@@ -105,6 +84,10 @@ class SettingsViewModel(
 
     fun onBiometricEnabledChanged(enabled: Boolean) {
         viewModelScope.launch { setBiometricEnabled(enabled) }
+    }
+
+    fun onDebugModeChanged(enabled: Boolean) {
+        viewModelScope.launch { setDebugModeEnabled(enabled) }
     }
 
     /**
@@ -171,10 +154,4 @@ class SettingsViewModel(
                 _uiState.update { it.copy(updateStatus = UpdateStatus.Failed(result.failure.message ?: "Download failed")) }
         }
     }
-
-    private fun UpdateAvailability.toUpdateStatus(): UpdateStatus =
-        when (this) {
-            is UpdateAvailability.UpToDate -> UpdateStatus.UpToDate(currentVersionName)
-            is UpdateAvailability.Available -> UpdateStatus.UpdateAvailable(update)
-        }
 }

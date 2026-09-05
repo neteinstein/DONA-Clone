@@ -98,6 +98,17 @@ class LoginViewModel(
         _uiState.update { it.copy(loginSucceeded = false) }
     }
 
+    /** Called when the app resumes to the foreground while this screen is showing. Automatically
+     * retries a previously failed login once credentials are available, so the user isn't stuck
+     * having to tap "Log in" again after e.g. a transient network drop while backgrounded. */
+    fun retryLoginIfNeeded() {
+        val state = _uiState.value
+        val hasCredentials = state.username.isNotBlank() && state.password.isNotBlank()
+        if (state.errorMessage != null && !state.isLoading && hasCredentials) {
+            login()
+        }
+    }
+
     fun onBiometricOptInResult(enable: Boolean) {
         if (enable) viewModelScope.launch { setBiometricEnabled(true) }
         _uiState.update { it.copy(showBiometricOptInPrompt = false) }

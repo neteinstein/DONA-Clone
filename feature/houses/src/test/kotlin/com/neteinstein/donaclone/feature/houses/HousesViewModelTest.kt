@@ -1,15 +1,29 @@
 package com.neteinstein.donaclone.feature.houses
 
 import app.cash.turbine.test
+import com.neteinstein.donaclone.core.common.DonaFailure
+import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.CanInstallUpdatesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.CheckForUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DeleteHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
+import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
+import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
+import com.neteinstein.donaclone.core.model.AppUpdate
 import com.neteinstein.donaclone.core.model.DiscoveredHouse
 import com.neteinstein.donaclone.core.model.House
 import com.neteinstein.donaclone.core.model.HubType
+import com.neteinstein.donaclone.core.model.ThemeMode
+import com.neteinstein.donaclone.core.model.UpdateAvailability
+import com.neteinstein.donaclone.core.model.UpdateStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,11 +45,19 @@ class HousesViewModelTest {
     private val saveHouse = mockk<SaveHouseUseCase>(relaxUnitFun = true)
     private val deleteHouse = mockk<DeleteHouseUseCase>(relaxUnitFun = true)
     private val discoverHouses = mockk<DiscoverHousesUseCase>()
+    private val observeThemeMode = mockk<ObserveThemeModeUseCase>()
+    private val setThemeMode = mockk<SetThemeModeUseCase>(relaxUnitFun = true)
+    private val checkForUpdate = mockk<CheckForUpdateUseCase>()
+    private val downloadUpdate = mockk<DownloadUpdateUseCase>()
+    private val canInstallUpdates = mockk<CanInstallUpdatesUseCase>()
+    private val installUpdate = mockk<InstallUpdateUseCase>()
+    private val openInstallPermissionSettings = mockk<OpenInstallPermissionSettingsUseCase>()
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         coEvery { observeHouses() } returns flowOf(emptyList())
+        every { observeThemeMode() } returns flowOf(ThemeMode.SYSTEM)
     }
 
     @After
@@ -43,7 +65,20 @@ class HousesViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = HousesViewModel(observeHouses, saveHouse, deleteHouse, discoverHouses)
+    private fun createViewModel() =
+        HousesViewModel(
+            observeHouses,
+            saveHouse,
+            deleteHouse,
+            discoverHouses,
+            observeThemeMode,
+            setThemeMode,
+            checkForUpdate,
+            downloadUpdate,
+            canInstallUpdates,
+            installUpdate,
+            openInstallPermissionSettings,
+        )
 
     @Test
     fun `applying a discovered house fills in the local IP`() =
@@ -101,5 +136,41 @@ class HousesViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             coVerify { deleteHouse("Home") }
+        }
+
+    @Test
+    fun `selecting a theme mode persists it`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.onThemeModeSelected(ThemeMode.DARK)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { setThemeMode(ThemeMode.DARK) }
+        }
+
+    @Test
+    fun `entering the screen surfaces an available update`() =
+        runTest(dispatcher) {
+            val update = AppUpdate(versionName = "0.2.0.5", versionCode = 5, apkDownloadUrl = "https://example.com/app.apk")
+            coEvery { checkForUpdate() } returns DonaResult.Success(UpdateAvailability.Available(update))
+            val viewModel = createViewModel()
+
+            viewModel.onScreenEntered()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(UpdateStatus.UpdateAvailable(update), viewModel.uiState.value.updateStatus)
+        }
+
+    @Test
+    fun `tapping update surfaces a failure message when the check itself fails`() =
+        runTest(dispatcher) {
+            coEvery { checkForUpdate() } returns DonaResult.Error(DonaFailure.Unknown("boom"))
+            val viewModel = createViewModel()
+
+            viewModel.onUpdateClicked()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(UpdateStatus.Failed("boom"), viewModel.uiState.value.updateStatus)
         }
 }

@@ -7,6 +7,7 @@ import com.neteinstein.donaclone.core.network.api.GitHubApi
 import com.neteinstein.donaclone.core.network.connectivity.ConnectivityObserver
 import com.neteinstein.donaclone.core.network.discovery.DiscoveryClient
 import com.neteinstein.donaclone.core.network.discovery.UdpDiscoveryClient
+import com.neteinstein.donaclone.core.network.logging.donaHttpLoggingInterceptor
 import com.neteinstein.donaclone.core.network.socket.DomotalkSocket
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -28,7 +29,13 @@ val networkModule =
                 explicitNulls = false
             }
         }
-        single<OkHttpClient> { DomotalkSocket.defaultOkHttpClient() }
+        single<OkHttpClient> {
+            DomotalkSocket
+                .defaultOkHttpClient()
+                .newBuilder()
+                .addInterceptor(donaHttpLoggingInterceptor())
+                .build()
+        }
         single { DomotalkSocket(okHttpClient = get(), json = get()) }
         single<DomotalkApi> { DomotalkApiImpl(socket = get(), json = get()) }
         single<DiscoveryClient> { UdpDiscoveryClient() }
@@ -48,7 +55,8 @@ val networkModule =
                             .header("User-Agent", "DonaClone-Android")
                             .build()
                     chain.proceed(request)
-                }.build()
+                }.addInterceptor(donaHttpLoggingInterceptor())
+                .build()
         }
         single<GitHubApi> {
             Retrofit

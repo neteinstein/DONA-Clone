@@ -2,7 +2,6 @@ package com.neteinstein.donaclone.feature.houses
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,8 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -33,19 +30,27 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.neteinstein.donaclone.core.designsystem.component.EmptyState
+import com.neteinstein.donaclone.core.designsystem.component.SectionHeader
+import com.neteinstein.donaclone.core.designsystem.component.UpdateSection
 import com.neteinstein.donaclone.core.model.DiscoveredHouse
 import com.neteinstein.donaclone.core.model.House
+import com.neteinstein.donaclone.core.model.ThemeMode
+import com.neteinstein.donaclone.core.model.UpdateStatus
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -54,6 +59,10 @@ fun HousesRoute(
     viewModel: HousesViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.onScreenEntered()
+    }
 
     HousesScreen(
         uiState = uiState,
@@ -65,6 +74,9 @@ fun HousesRoute(
         onDraftChange = viewModel::updateDraft,
         onApplyDiscovered = viewModel::applyDiscoveredHouse,
         onSave = viewModel::saveDraft,
+        onThemeModeSelected = viewModel::onThemeModeSelected,
+        onUpdateClicked = viewModel::onUpdateClicked,
+        onEnableSideloadingClicked = viewModel::onEnableSideloadingClicked,
     )
 }
 
@@ -80,15 +92,23 @@ fun HousesScreen(
     onDraftChange: ((House) -> House) -> Unit,
     onApplyDiscovered: (DiscoveredHouse) -> Unit,
     onSave: () -> Unit,
+    onThemeModeSelected: (ThemeMode) -> Unit = {},
+    onUpdateClicked: () -> Unit = {},
+    onEnableSideloadingClicked: () -> Unit = {},
 ) {
     when (val mode = uiState.mode) {
         HousesMode.List ->
             HousesListScreen(
                 houses = uiState.houses,
+                themeMode = uiState.themeMode,
+                updateStatus = uiState.updateStatus,
                 onBack = onBack,
                 onAddHouse = onAddHouse,
                 onEditHouse = onEditHouse,
                 onDeleteHouse = onDeleteHouse,
+                onThemeModeSelected = onThemeModeSelected,
+                onUpdateClicked = onUpdateClicked,
+                onEnableSideloadingClicked = onEnableSideloadingClicked,
             )
 
         is HousesMode.Editing ->
@@ -109,10 +129,15 @@ fun HousesScreen(
 @Composable
 private fun HousesListScreen(
     houses: List<House>,
+    themeMode: ThemeMode,
+    updateStatus: UpdateStatus,
     onBack: () -> Unit,
     onAddHouse: () -> Unit,
     onEditHouse: (House) -> Unit,
     onDeleteHouse: (House) -> Unit,
+    onThemeModeSelected: (ThemeMode) -> Unit,
+    onUpdateClicked: () -> Unit,
+    onEnableSideloadingClicked: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -131,32 +156,72 @@ private fun HousesListScreen(
             }
         },
     ) { padding ->
-        if (houses.isEmpty()) {
-            EmptyState(
-                message = "No houses yet. Add your DPU's local IP or DNS address to connect.",
-                icon = Icons.Filled.Home,
-                modifier = Modifier.padding(padding),
-            )
-            return@Scaffold
-        }
-        LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), modifier = Modifier.padding(padding)) {
-            items(houses, key = { it.name }) { house ->
-                ListItem(
-                    headlineContent = { Text(house.name) },
-                    supportingContent = { Text(house.localIp ?: house.dns ?: "No address configured") },
-                    leadingContent = { Icon(Icons.Filled.Home, contentDescription = null) },
-                    trailingContent = {
-                        Row {
-                            IconButton(onClick = { onEditHouse(house) }) {
-                                Icon(Icons.Filled.Edit, contentDescription = "Edit")
-                            }
-                            IconButton(onClick = { onDeleteHouse(house) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Delete")
-                            }
-                        }
-                    },
-                )
+        Column(
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            SectionHeader("Appearance")
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                ThemeMode.entries.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = themeMode == mode,
+                        onClick = { onThemeModeSelected(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
+                    ) {
+                        Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
+                    }
+                }
             }
+
+            SectionHeader("Updates")
+            UpdateSection(
+                status = updateStatus,
+                onUpdateClicked = onUpdateClicked,
+                onEnableSideloadingClicked = onEnableSideloadingClicked,
+            )
+
+            SectionHeader("Houses")
+            if (houses.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Home,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 16.dp),
+                    )
+                    Text(
+                        text = "No houses yet. Add your DPU's local IP or DNS address to connect.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else {
+                houses.forEach { house ->
+                    ListItem(
+                        headlineContent = { Text(house.name) },
+                        supportingContent = { Text(house.localIp ?: house.dns ?: "No address configured") },
+                        leadingContent = { Icon(Icons.Filled.Home, contentDescription = null) },
+                        trailingContent = {
+                            Row {
+                                IconButton(onClick = { onEditHouse(house) }) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                                }
+                                IconButton(onClick = { onDeleteHouse(house) }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(88.dp))
         }
     }
 }

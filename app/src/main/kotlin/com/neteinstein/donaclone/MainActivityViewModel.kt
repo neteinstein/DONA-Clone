@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveConnectivityUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDpuUnreachableUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetAppForegroundUseCase
+import com.neteinstein.donaclone.core.model.SessionStatus
 import com.neteinstein.donaclone.core.model.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +36,7 @@ class MainActivityViewModel(
     observeBiometricEnabled: ObserveBiometricEnabledUseCase,
     observeConnectivity: ObserveConnectivityUseCase,
     observeDpuUnreachable: ObserveDpuUnreachableUseCase,
+    observeSessionState: ObserveSessionStateUseCase,
     private val retryConnection: RetryConnectionUseCase,
     private val setAppForeground: SetAppForegroundUseCase,
 ) : ViewModel() {
@@ -52,8 +55,18 @@ class MainActivityViewModel(
             }
         }
         viewModelScope.launch {
-            combine(observeConnectivity(), observeDpuUnreachable()) { isOnline, dpuUnreachable ->
-                !isOnline || dpuUnreachable
+            // Gated on being authenticated: a DPU-unreachable failure always drops sessionState to
+            // DISCONNECTED (see AuthRepositoryImpl), which already sends an authenticated screen
+            // back to the login form — so the banner's own "Retry" action would just duplicate the
+            // login screen's prefilled-credentials "Log in" button. Only a live session losing
+            // general connectivity (isOnline) while the user is actively using the app still needs
+            // this lightweight banner instead of a full navigation away.
+            combine(
+                observeConnectivity(),
+                observeDpuUnreachable(),
+                observeSessionState(),
+            ) { isOnline, dpuUnreachable, sessionState ->
+                (!isOnline || dpuUnreachable) && sessionState == SessionStatus.CONNECTED
             }.collect { showBanner -> _uiState.update { it.copy(showConnectivityBanner = showBanner) } }
         }
     }

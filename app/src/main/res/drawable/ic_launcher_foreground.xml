@@ -4,9 +4,32 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bold house glyph (roof eaves + door notch), styled after Google's Home app icon,
+    <!-- White house outline (roof eaves + door notch), styled after Google's Home app icon,
          sized to sit inside the adaptive-icon safe zone (18dp inset on each side). -->
     <path
-        android:fillColor="@color/dona_green"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
         android:pathData="M48,78 L48,60 L60,60 L60,78 L75,78 L75,54 L84,54 L54,27 L24,54 L33,54 L33,78 Z" />
+    <!-- Wifi signal arcs, top-right of the roof, echoing the reference icon's connectivity motif -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M70,28 A6,6 0 0 1 76,34" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M70,22 A12,12 0 0 1 82,34" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M70,16 A18,18 0 0 1 88,34" />
 </vector>

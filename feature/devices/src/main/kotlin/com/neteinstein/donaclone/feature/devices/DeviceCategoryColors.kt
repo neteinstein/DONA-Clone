@@ -64,7 +64,7 @@ fun colorsForCategory(category: DeviceCategory): DeviceCategoryColors {
             } else {
                 DeviceCategoryColors(DonaCategoryPurpleContainerLight, DonaCategoryPurpleOnContainerLight)
             }
-        DeviceCategory.DOOR_SENSOR, DeviceCategory.GATE_SENSOR ->
+        DeviceCategory.DOOR_SENSOR, DeviceCategory.GATE_SENSOR, DeviceCategory.GARAGE_DOOR ->
             if (isDark) {
                 DeviceCategoryColors(DonaCategoryBrownContainerDark, DonaCategoryBrownOnContainerDark)
             } else {

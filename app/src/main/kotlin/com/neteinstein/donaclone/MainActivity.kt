@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
@@ -101,10 +102,16 @@ class MainActivity : FragmentActivity() {
                 // Every top-level screen already handles its own top inset (a Scaffold with a
                 // TopAppBar, or an explicit statusBarsPadding() on Login/BiometricLock) — exclude
                 // the status bar here, or the top bar on every screen ends up pushed down by its
-                // height a second time.
+                // height a second time. Likewise exclude the navigation bar: MainScreen's own
+                // Scaffold + bottom nav bar already reserves that space, so reserving it again
+                // here would push the whole post-login shell (bottom bar included) up, leaving a
+                // gap between it and the true bottom of the screen.
                 Scaffold(
                     snackbarHost = { SnackbarHost(snackbarHostState) },
-                    contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.statusBars),
+                    contentWindowInsets =
+                        WindowInsets.safeDrawing
+                            .exclude(WindowInsets.statusBars)
+                            .exclude(WindowInsets.navigationBars),
                 ) { padding ->
                     Surface(
                         modifier = Modifier.fillMaxSize().padding(padding),

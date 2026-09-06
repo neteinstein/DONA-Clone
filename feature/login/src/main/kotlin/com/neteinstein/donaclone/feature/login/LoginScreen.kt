@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -140,7 +141,7 @@ fun LoginScreen(
     onManageHouses: () -> Unit,
 ) {
     if (uiState.houses.isEmpty()) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             EmptyState(
                 message = "No houses configured yet. Add your DPU's address to get started.",
                 icon = Icons.Filled.Home,
@@ -165,6 +166,7 @@ fun LoginScreen(
                 Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
+                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState())
                     .imePadding()
                     .padding(24.dp),

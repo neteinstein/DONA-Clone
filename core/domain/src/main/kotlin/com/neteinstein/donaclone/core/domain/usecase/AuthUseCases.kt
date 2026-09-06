@@ -55,3 +55,9 @@ class ObserveDpuUnreachableUseCase(
 ) {
     operator fun invoke(): StateFlow<Boolean> = repository.dpuUnreachable
 }
+
+class SetAppForegroundUseCase(
+    private val repository: AuthRepository,
+) {
+    operator fun invoke(foreground: Boolean) = repository.setAppForeground(foreground)
+}

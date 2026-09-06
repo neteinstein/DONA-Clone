@@ -32,6 +32,13 @@ import timber.log.Timber
  * simply can't be reached at all ([DonaFailure.Unreachable]) is deliberately *not* retried here
  * and does *not* log the user out — that case is the connectivity banner's job instead
  * (`ConnectivityRepository`/`MainActivityViewModel`), not this recovery loop's.
+ *
+ * Retries only ever run while the app is in the foreground (see [setAppForeground]): the OS
+ * routinely tears down the socket the moment the app is backgrounded, and burning through (and
+ * exhausting) the retry budget against a background-restricted network would give up and log the
+ * user out before they even got a chance to see it happen. Each attempt waits for the foreground
+ * first, so a give-up — and the login screen it triggers via `sessionState` — only ever follows
+ * retries that genuinely ran and failed while the app was open.
  */
 class AuthRepositoryImpl(
     private val socket: DomotalkSocket,
@@ -51,6 +58,8 @@ class AuthRepositoryImpl(
     @Volatile private var loggingOut = false
 
     @Volatile private var recovering = false
+
+    private val _appForeground = MutableStateFlow(true)
 
     init {
         applicationScope.launch {
@@ -149,6 +158,9 @@ class AuthRepositoryImpl(
 
             for (attempt in 1..MAX_AUTO_RETRY_ATTEMPTS) {
                 delay(RETRY_BACKOFF_MILLIS.getOrElse(attempt - 1) { RETRY_BACKOFF_MILLIS.last() })
+                // Never spend an attempt while backgrounded — wait for the app to be visible again
+                // first, so a background-only disconnect can't quietly exhaust the retry budget.
+                _appForeground.first { it }
                 when (val result = attemptRecovery(house)) {
                     is DonaResult.Success -> return
                     is DonaResult.Error -> {
@@ -207,6 +219,10 @@ class AuthRepositoryImpl(
         socket.disconnect()
         houseRepository.setActiveHouseName(null)
         loggingOut = false
+    }
+
+    override fun setAppForeground(foreground: Boolean) {
+        _appForeground.value = foreground
     }
 
     private suspend fun lastActiveHouse(): House? =

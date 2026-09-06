@@ -151,4 +151,39 @@ class AuthRepositoryImplTest {
 
             assertTrue(repository.currentSession != null)
         }
+
+    @Test
+    fun `an unsolicited disconnect while backgrounded does not give up until the app is foregrounded again`() =
+        runTest {
+            val repository = repository()
+            coEvery { socket.connect("home.example.com", true, true) } just Runs
+            coEvery { api.readUsers() } returns listOf(UserDto(id = 7, name = "alice", role = 1))
+            coEvery { api.createSession(7, PasswordHasher.md5Hex("secret")) } returns "token-1"
+            repository.login(house)
+
+            coEvery { houseRepository.activeHouseName } returns MutableStateFlow("Home")
+            coEvery { houseRepository.getHouse("Home") } returns house
+            coEvery { api.resumeSession(any()) } throws DomotalkException.RequestTimeout("action", "session")
+            coEvery { socket.connect(any(), any(), any()) } just Runs
+            // A user that no longer matches "alice" is an auth failure (InvalidCredentials), not
+            // Unreachable — the kind the retry loop is willing to exhaust its budget and give up on.
+            coEvery { api.readUsers() } returns listOf(UserDto(id = 7, name = "bob", role = 1))
+
+            repository.setAppForeground(false)
+            connectionState.value = ConnectionState.CONNECTED
+            connectionState.value = ConnectionState.DISCONNECTED
+            advanceUntilIdle()
+
+            // Retries never ran because the app stayed backgrounded — session must still be intact
+            // rather than given up on, which would otherwise force the user back to Login.
+            assertTrue(repository.currentSession != null)
+            assertEquals(SessionStatus.CONNECTED, repository.sessionState.value)
+
+            repository.setAppForeground(true)
+            advanceUntilIdle()
+
+            // Once foregrounded, the paused retry loop resumes and, after exhausting its budget
+            // against a genuine (non-Unreachable) auth failure, gives up.
+            assertEquals(SessionStatus.DISCONNECTED, repository.sessionState.value)
+        }
 }

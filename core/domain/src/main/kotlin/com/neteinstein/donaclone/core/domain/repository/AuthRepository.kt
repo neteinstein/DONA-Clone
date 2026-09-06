@@ -27,4 +27,10 @@ interface AuthRepository {
      * the connectivity banner's "Retry" action. Does not affect the automatic session-recovery
      * retry budget (see the `AuthRepositoryImpl` implementation). */
     suspend fun retryConnection(): DonaResult<Unit>
+
+    /** Tells the automatic session-recovery loop whether the app is currently in the foreground.
+     * An unsolicited disconnect while backgrounded (the OS tearing down the socket, not a real
+     * auth failure) must not spend its retry budget — and must not give up and log the user out —
+     * while nobody is there to see it; see `AuthRepositoryImpl.handleUnsolicitedDisconnect`. */
+    fun setAppForeground(foreground: Boolean)
 }

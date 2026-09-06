@@ -46,7 +46,13 @@ fun BiometricLockRoute(
     }
 
     if (uiState.useFallback || activity == null) {
-        LoginRoute(onLoggedIn = onUnlocked, onManageHouses = onManageHouses)
+        // Credentials are edited on the Houses screen, so tapping a login field goes wherever
+        // this surface's "manage houses" goes — the lock screen has no navigation of its own.
+        LoginRoute(
+            onLoggedIn = onUnlocked,
+            onManageHouses = onManageHouses,
+            onEditHouse = { onManageHouses() },
+        )
         return
     }
 

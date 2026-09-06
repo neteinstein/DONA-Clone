@@ -25,6 +25,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -63,6 +64,7 @@ class HousesViewModel(
     val uiState: StateFlow<HousesUiState> = _uiState.asStateFlow()
 
     private var discoveryJob: Job? = null
+    private var handledEditRequest = false
 
     init {
         viewModelScope.launch {
@@ -146,6 +148,21 @@ class HousesViewModel(
     fun startAddingHouse() {
         _uiState.update { it.copy(mode = HousesMode.Editing(original = null, draft = House(name = ""))) }
         startDiscovery()
+    }
+
+    /**
+     * Opens the editor straight away for the house named [houseName], for callers that deep-link
+     * into this screen to change a specific profile — the login screen's read-only username and
+     * password fields do exactly that. Only ever acts once per ViewModel, so cancelling the editor
+     * lands on the Houses list instead of bouncing back into it.
+     */
+    fun editHouseNamed(houseName: String) {
+        if (handledEditRequest) return
+        handledEditRequest = true
+        viewModelScope.launch {
+            val house = observeHouses().first().find { it.name == houseName } ?: return@launch
+            startEditingHouse(house)
+        }
     }
 
     fun startEditingHouse(house: House) {

@@ -43,22 +43,26 @@ class LoginViewModel(
             observeHouses().collect { houses ->
                 _uiState.update { state ->
                     val updatedState = state.copy(houses = houses)
+                    val selected = state.selectedHouse
                     when {
-                        state.selectedHouse == null && houses.isNotEmpty() ->
+                        selected == null && houses.isNotEmpty() ->
                             updatedState.copy(selectedHouse = houses.first()).withPrefilledCredentials()
-                        // The selected house's own connection details (dns/localIp/...) may have
-                        // just been edited on the Houses screen — re-sync so login() picks up the
-                        // new address instead of the stale copy captured when it was first
-                        // selected. Matched by name (the House primary key); username/password
-                        // fields are left alone since the user may be mid-edit on this screen.
-                        else -> {
-                            val refreshed = state.selectedHouse?.let { sel -> houses.find { it.name == sel.name } }
-                            if (refreshed != null && refreshed != state.selectedHouse) {
-                                updatedState.copy(selectedHouse = refreshed)
+                        // The selected house may have just been edited on the Houses screen — its
+                        // address (dns/localIp/...) *and* its credentials, which are only editable
+                        // there now that this screen's fields are read-only. Re-sync both so the
+                        // saved values show up here and login() uses them instead of the stale
+                        // copy captured when the house was first selected. Matched by name (the
+                        // House primary key); a rename or a delete falls back to the first
+                        // remaining profile rather than keeping a house that no longer exists.
+                        selected != null -> {
+                            val refreshed = houses.find { it.name == selected.name } ?: houses.firstOrNull()
+                            if (refreshed != selected) {
+                                updatedState.copy(selectedHouse = refreshed).withPrefilledCredentials()
                             } else {
                                 updatedState
                             }
                         }
+                        else -> updatedState
                     }
                 }
             }
@@ -73,14 +77,6 @@ class LoginViewModel(
 
     fun selectHouse(house: House) {
         _uiState.update { it.copy(selectedHouse = house).withPrefilledCredentials() }
-    }
-
-    fun onUsernameChange(value: String) {
-        _uiState.update { it.copy(username = value, errorMessage = null) }
-    }
-
-    fun onPasswordChange(value: String) {
-        _uiState.update { it.copy(password = value, errorMessage = null) }
     }
 
     fun login() {
@@ -126,6 +122,12 @@ class LoginViewModel(
         _uiState.update { it.copy(showBiometricOptInPrompt = false) }
     }
 
+    /** Credentials are never typed on this screen — they always mirror the stored profile, so any
+     * error raised by the previous pair of values is stale as soon as they are re-read. */
     private fun LoginUiState.withPrefilledCredentials(): LoginUiState =
-        copy(username = selectedHouse?.username.orEmpty(), password = selectedHouse?.password.orEmpty())
+        copy(
+            username = selectedHouse?.username.orEmpty(),
+            password = selectedHouse?.password.orEmpty(),
+            errorMessage = null,
+        )
 }

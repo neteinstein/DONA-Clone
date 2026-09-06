@@ -41,6 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -56,12 +59,28 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun HousesRoute(
     onDone: () -> Unit,
+    editHouseName: String? = null,
     viewModel: HousesViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.onScreenEntered()
+    }
+
+    LaunchedEffect(editHouseName) {
+        if (editHouseName != null) viewModel.editHouseNamed(editHouseName)
+    }
+
+    // Deep-linked straight into one house's editor (from the login screen's read-only credential
+    // fields): closing the editor — by saving or cancelling — should return where the deep link
+    // came from rather than leaving the user on the Houses list they never asked for.
+    var editorOpened by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.mode) {
+        when {
+            uiState.mode is HousesMode.Editing -> editorOpened = true
+            editorOpened && editHouseName != null -> onDone()
+        }
     }
 
     HousesScreen(

@@ -18,6 +18,7 @@ import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -37,6 +38,9 @@ class LoginViewModelTest {
 
     private val house = House(name = "Home", localIp = "192.168.1.50", username = "alice", password = "secret")
 
+    /** Stands in for the stored profiles, so a test can emit an edit made on the Houses screen. */
+    private val houses = MutableStateFlow(listOf(house))
+
     private val observeHouses = mockk<ObserveHousesUseCase>()
     private val getActiveHouse = mockk<GetActiveHouseUseCase>()
     private val login = mockk<LoginUseCase>()
@@ -54,7 +58,7 @@ class LoginViewModelTest {
     }
 
     private fun createViewModel(biometricEnabled: Boolean = false): LoginViewModel {
-        coEvery { observeHouses() } returns flowOf(listOf(house))
+        coEvery { observeHouses() } returns houses
         coEvery { getActiveHouse() } returns null
         every { observeBiometricEnabled() } returns flowOf(biometricEnabled)
         return LoginViewModel(observeHouses, getActiveHouse, login, observeBiometricEnabled, setBiometricEnabled)
@@ -188,12 +192,11 @@ class LoginViewModelTest {
     @Test
     fun `resuming after a failure without credentials does not retry`() =
         runTest(dispatcher) {
+            // A profile saved without credentials: the login fields are read-only, so blank values
+            // can only come from the house itself.
+            houses.value = listOf(house.copy(username = "", password = ""))
             val viewModel = createViewModel()
             dispatcher.scheduler.advanceUntilIdle()
-            // Clear the pre-filled credentials before the failing attempt, so the resulting error
-            // state has blank fields (each change also clears any stale error message).
-            viewModel.onUsernameChange("")
-            viewModel.onPasswordChange("")
             coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
             viewModel.login()
             dispatcher.scheduler.advanceUntilIdle()
@@ -202,5 +205,52 @@ class LoginViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             coVerify(exactly = 1) { login.invoke(any()) }
+        }
+
+    @Test
+    fun `credentials edited on the houses screen flow back into the login fields`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            val edited = house.copy(username = "bob", password = "hunter2")
+
+            houses.value = listOf(edited)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(edited, state.selectedHouse)
+            assertEquals("bob", state.username)
+            assertEquals("hunter2", state.password)
+        }
+
+    @Test
+    fun `renaming the selected house falls back to the stored profile`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            val renamed = house.copy(name = "Cabin", username = "bob")
+
+            houses.value = listOf(renamed)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(renamed, state.selectedHouse)
+            assertEquals("bob", state.username)
+        }
+
+    @Test
+    fun `refreshed credentials clear a stale error message`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            coEvery { login.invoke(any()) } returns DonaResult.Error(DonaFailure.InvalidCredentials("Wrong password"))
+            viewModel.login()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("Wrong password", viewModel.uiState.value.errorMessage)
+
+            houses.value = listOf(house.copy(password = "corrected"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.errorMessage)
         }
 }

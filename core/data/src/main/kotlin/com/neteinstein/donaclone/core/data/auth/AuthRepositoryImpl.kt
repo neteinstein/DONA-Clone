@@ -59,7 +59,7 @@ class AuthRepositoryImpl(
 
     @Volatile private var recovering = false
 
-    private val _appForeground = MutableStateFlow(true)
+    private val appForeground = MutableStateFlow(true)
 
     init {
         applicationScope.launch {
@@ -160,7 +160,7 @@ class AuthRepositoryImpl(
                 delay(RETRY_BACKOFF_MILLIS.getOrElse(attempt - 1) { RETRY_BACKOFF_MILLIS.last() })
                 // Never spend an attempt while backgrounded — wait for the app to be visible again
                 // first, so a background-only disconnect can't quietly exhaust the retry budget.
-                _appForeground.first { it }
+                appForeground.first { it }
                 when (val result = attemptRecovery(house)) {
                     is DonaResult.Success -> return
                     is DonaResult.Error -> {
@@ -222,7 +222,7 @@ class AuthRepositoryImpl(
     }
 
     override fun setAppForeground(foreground: Boolean) {
-        _appForeground.value = foreground
+        appForeground.value = foreground
     }
 
     private suspend fun lastActiveHouse(): House? =

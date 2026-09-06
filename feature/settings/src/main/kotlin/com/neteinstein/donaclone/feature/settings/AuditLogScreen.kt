@@ -1,5 +1,7 @@
 package com.neteinstein.donaclone.feature.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePickerDialog
@@ -21,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -160,9 +165,11 @@ private fun AuditLogList(entries: List<AuditLogEntry>) {
         remember {
             DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withZone(ZoneOffset.systemDefault())
         }
+    var expandedEntryId by remember { mutableStateOf<Int?>(null) }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(entries, key = AuditLogEntry::id) { entry ->
+            val isExpanded = expandedEntryId == entry.id
             ListItem(
                 headlineContent = { Text(entry.description ?: "Event${entry.type?.let { " ($it)" } ?: ""}") },
                 supportingContent = {
@@ -173,9 +180,47 @@ private fun AuditLogList(entries: List<AuditLogEntry>) {
                         },
                     )
                 },
+                trailingContent = {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (isExpanded) "Collapse details" else "Expand details",
+                    )
+                },
+                modifier =
+                    Modifier.clickable {
+                        expandedEntryId = if (isExpanded) null else entry.id
+                    },
             )
+            AnimatedVisibility(visible = isExpanded) {
+                AuditLogEntryDetails(entry = entry, formatter = formatter)
+            }
             HorizontalDivider()
         }
+    }
+}
+
+@Composable
+private fun AuditLogEntryDetails(
+    entry: AuditLogEntry,
+    formatter: DateTimeFormatter,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+        DetailRow(label = "Event ID", value = entry.id.toString())
+        DetailRow(label = "Type", value = entry.type?.toString() ?: "Unknown")
+        DetailRow(label = "Object ID", value = entry.objectId?.toString() ?: "—")
+        DetailRow(label = "User ID", value = entry.userId?.toString() ?: "—")
+        DetailRow(label = "Timestamp", value = formatter.format(entry.date))
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(text = label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
     }
 }
 

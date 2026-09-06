@@ -54,19 +54,23 @@ enum class DeviceCategory {
  * recovered from the decompiled app, so this keys off the device's free-text category label
  * where available.
  *
- * In practice the hub almost never sends [Device.freeTypeLabel] as a string (its `type` key is
- * usually the numeric [com.neteinstein.donaclone.core.model.DpuDeviceCode] instead — see
- * [com.neteinstein.donaclone.core.network.mapper.DeviceJsonMapper]), which otherwise left every
- * ambiguous deviceOut (an on/off relay could be a light, a garage door opener, anything) and every
- * deviceIn sensor showing the same catch-all icon. So when there's no free-text label at all, this
+ * In practice, on the real hub this app talks to, [Device.freeTypeLabel] is never an English (or
+ * Portuguese) category word — it's the same numeric [com.neteinstein.donaclone.core.model.DpuDeviceCode]
+ * as the wire `type` discriminator, just sent as a quoted string instead of a bare number (see
+ * [com.neteinstein.donaclone.core.network.mapper.DeviceJsonMapper]), e.g. a plain on/off relay's
+ * label is the literal text `"60"`. A numeric label carries no category information beyond what
+ * the concrete [Device] subtype already encodes, so it's treated the same as no label at all: this
  * falls back to matching the same keywords against the device's own (user-assigned) [Device.name]
  * before finally falling back to the concrete [Device] subtype — a name is a much weaker signal
  * than a hub-provided type, so it's only consulted when the hub gave nothing better.
  */
 fun deviceCategoryOf(device: Device): DeviceCategory {
     val freeLabel = device.freeTypeLabel?.lowercase().orEmpty()
-    categoryForLabel(freeLabel)?.let { return it }
-    if (freeLabel.isNotBlank()) return DeviceCategory.GENERIC_SENSOR
+    val isNumericLabel = freeLabel.isNotBlank() && freeLabel.toIntOrNull() != null
+    if (!isNumericLabel) {
+        categoryForLabel(freeLabel)?.let { return it }
+        if (freeLabel.isNotBlank()) return DeviceCategory.GENERIC_SENSOR
+    }
 
     categoryForLabel(device.name.lowercase())?.let { return it }
 

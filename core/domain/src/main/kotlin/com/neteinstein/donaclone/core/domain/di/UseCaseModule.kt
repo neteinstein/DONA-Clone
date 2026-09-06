@@ -30,6 +30,7 @@ import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetActiveHouseUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetAppForegroundUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomOrderUseCase
@@ -54,6 +55,7 @@ val useCaseModule =
         factoryOf(::GetCurrentSessionUseCase)
         factoryOf(::RetryConnectionUseCase)
         factoryOf(::ObserveDpuUnreachableUseCase)
+        factoryOf(::SetAppForegroundUseCase)
 
         factoryOf(::GetRoomsUseCase)
         factoryOf(::GetDevicesUseCase)

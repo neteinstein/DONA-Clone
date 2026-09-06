@@ -7,6 +7,7 @@ import com.neteinstein.donaclone.core.domain.usecase.ObserveConnectivityUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDpuUnreachableUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetAppForegroundUseCase
 import com.neteinstein.donaclone.core.model.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,7 @@ class MainActivityViewModel(
     observeConnectivity: ObserveConnectivityUseCase,
     observeDpuUnreachable: ObserveDpuUnreachableUseCase,
     private val retryConnection: RetryConnectionUseCase,
+    private val setAppForeground: SetAppForegroundUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainActivityUiState())
     val uiState: StateFlow<MainActivityUiState> = _uiState.asStateFlow()
@@ -57,11 +59,20 @@ class MainActivityViewModel(
     }
 
     /** Call from an `ON_STOP` lifecycle event so re-opening/resuming the app requires another
-     * fingerprint scan, matching "gates every app open/resume." */
+     * fingerprint scan, matching "gates every app open/resume." Also tells the session-recovery
+     * loop the app is no longer visible, so an unsolicited disconnect while backgrounded can't
+     * quietly exhaust its retry budget and log the user out before they return. */
     fun onAppBackgrounded() {
         if (_uiState.value.biometricEnabled) {
             _uiState.update { it.copy(isLocked = true) }
         }
+        setAppForeground(false)
+    }
+
+    /** Call from an `ON_START` lifecycle event: lets any pending automatic session-recovery
+     * attempt resume now that the app is visible again, instead of staying paused indefinitely. */
+    fun onAppForegrounded() {
+        setAppForeground(true)
     }
 
     fun onUnlocked() {

@@ -3,8 +3,10 @@ package com.neteinstein.donaclone.core.domain.di
 import com.neteinstein.donaclone.core.domain.usecase.CanInstallUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.CheckForUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ClearDownloadedUpdateUseCase
+import com.neteinstein.donaclone.core.domain.usecase.CreateUserUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DeleteAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DeleteHouseUseCase
+import com.neteinstein.donaclone.core.domain.usecase.DeleteUserUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
@@ -42,6 +44,7 @@ import com.neteinstein.donaclone.core.domain.usecase.SetRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.TriggerAmbienceUseCase
+import com.neteinstein.donaclone.core.domain.usecase.UpdateUserUseCase
 import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
 
@@ -74,6 +77,9 @@ val useCaseModule =
 
         factoryOf(::GetAuditLogUseCase)
         factoryOf(::GetUsersUseCase)
+        factoryOf(::CreateUserUseCase)
+        factoryOf(::UpdateUserUseCase)
+        factoryOf(::DeleteUserUseCase)
 
         factoryOf(::ObserveThemeModeUseCase)
         factoryOf(::SetThemeModeUseCase)

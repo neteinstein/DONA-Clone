@@ -12,6 +12,9 @@ data class UserDto(
     val remoteAccessible: Boolean = true,
     val house: Int? = null,
     val enabled: Boolean = true,
+    /** Write-only: set when creating a user or changing one's password on `update user` (§11.4).
+     * Never populated from a `read user` response. */
+    val password: String? = null,
 )
 
 @Serializable

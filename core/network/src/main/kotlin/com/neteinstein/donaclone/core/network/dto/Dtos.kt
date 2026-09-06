@@ -12,11 +12,26 @@ data class UserDto(
     val remoteAccessible: Boolean = true,
     val house: Int? = null,
     val enabled: Boolean = true,
+    /** Write-only: set when creating a user or changing one's password on `update user` (§11.4).
+     * Never populated from a `read user` response. */
+    val password: String? = null,
 )
 
 @Serializable
 data class SessionDto(
     val token: String,
+)
+
+/**
+ * A named user role (protocol notes §11.4), as returned by `read role`. Confirmed via the hub's
+ * own web UI translation strings (`log.user.1.role.*`): a stock hub seeds "Administrator",
+ * "Installer", and "User", with `id == 2` being Administrator — but names are hub-configurable,
+ * so they're always read live rather than hardcoded.
+ */
+@Serializable
+data class RoleDto(
+    val id: Int,
+    val name: String = "",
 )
 
 @Serializable

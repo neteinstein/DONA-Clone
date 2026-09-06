@@ -15,6 +15,7 @@ import com.neteinstein.donaclone.core.data.roomsdisplay.RoomsDisplayRepositoryIm
 import com.neteinstein.donaclone.core.data.theme.ThemeRepositoryImpl
 import com.neteinstein.donaclone.core.data.update.UpdateInstallerImpl
 import com.neteinstein.donaclone.core.data.update.UpdateRepositoryImpl
+import com.neteinstein.donaclone.core.data.user.RoleRepositoryImpl
 import com.neteinstein.donaclone.core.data.user.UserRepositoryImpl
 import com.neteinstein.donaclone.core.domain.repository.ActionConfirmationRepository
 import com.neteinstein.donaclone.core.domain.repository.AmbienceRepository
@@ -26,6 +27,7 @@ import com.neteinstein.donaclone.core.domain.repository.DebugRepository
 import com.neteinstein.donaclone.core.domain.repository.DeviceRepository
 import com.neteinstein.donaclone.core.domain.repository.DiscoveryRepository
 import com.neteinstein.donaclone.core.domain.repository.HouseRepository
+import com.neteinstein.donaclone.core.domain.repository.RoleRepository
 import com.neteinstein.donaclone.core.domain.repository.RoomsDisplayRepository
 import com.neteinstein.donaclone.core.domain.repository.ThemeRepository
 import com.neteinstein.donaclone.core.domain.repository.UpdateInstaller
@@ -56,6 +58,7 @@ val dataModule =
         single<AmbienceRepository> { AmbienceRepositoryImpl(api = get()) }
         single<AuditLogRepository> { AuditLogRepositoryImpl(api = get()) }
         single<UserRepository> { UserRepositoryImpl(api = get()) }
+        single<RoleRepository> { RoleRepositoryImpl(api = get()) }
         single<ThemeRepository> { ThemeRepositoryImpl(themePreferences = get()) }
         single<BiometricRepository> { BiometricRepositoryImpl(biometricPreferences = get()) }
         single<DebugRepository> { DebugRepositoryImpl(debugPreferences = get()) }

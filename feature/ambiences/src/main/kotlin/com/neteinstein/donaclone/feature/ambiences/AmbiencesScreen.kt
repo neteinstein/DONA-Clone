@@ -11,16 +11,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.neteinstein.donaclone.core.designsystem.component.EmptyState
@@ -56,6 +61,22 @@ fun AmbiencesScreen(
     onCreateAutomation: () -> Unit,
     onOpenAutomationDetail: (Int) -> Unit,
 ) {
+    var pendingToggle by remember { mutableStateOf<Ambience?>(null) }
+    pendingToggle?.let { ambience ->
+        AlertDialog(
+            onDismissRequest = { pendingToggle = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToggle(ambience)
+                    pendingToggle = null
+                }) { Text(if (ambience.isPlaying) "Stop" else "Run") }
+            },
+            dismissButton = { TextButton(onClick = { pendingToggle = null }) { Text("Cancel") } },
+            title = { Text(if (ambience.isPlaying) "Stop this scenario?" else "Run this scenario?") },
+            text = { Text("\"${ambience.name}\" will ${if (ambience.isPlaying) "stop" else "run"} on the hub now.") },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -99,7 +120,7 @@ fun AmbiencesScreen(
                             name = ambience.name,
                             icon = Icons.Filled.PlayCircle,
                             isPlaying = ambience.isPlaying,
-                            onClick = { onToggle(ambience) },
+                            onClick = { pendingToggle = ambience },
                             onLongClick = { onOpenAutomationDetail(ambience.id) },
                         )
                     }

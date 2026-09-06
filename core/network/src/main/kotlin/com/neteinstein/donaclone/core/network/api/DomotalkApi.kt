@@ -1,10 +1,13 @@
 package com.neteinstein.donaclone.core.network.api
 
 import com.neteinstein.donaclone.core.model.Device
+import com.neteinstein.donaclone.core.network.dto.ActionDto
 import com.neteinstein.donaclone.core.network.dto.AmbienceDto
+import com.neteinstein.donaclone.core.network.dto.ConditionDto
 import com.neteinstein.donaclone.core.network.dto.DivisionDto
 import com.neteinstein.donaclone.core.network.dto.MasterLogEntryDto
 import com.neteinstein.donaclone.core.network.dto.SessionDto
+import com.neteinstein.donaclone.core.network.dto.TriggerDto
 import com.neteinstein.donaclone.core.network.dto.UserDto
 import com.neteinstein.donaclone.core.network.mapper.DeviceJsonMapper
 import com.neteinstein.donaclone.core.network.socket.DomotalkException
@@ -17,6 +20,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 
@@ -88,6 +92,61 @@ interface DomotalkApi {
     )
 
     suspend fun updateAmbience(raw: JsonObject)
+
+    /** `create ambience`, `options.object = {name, enabled}` (no `id` — the hub assigns one).
+     * §11.6's CRUD/linking pattern. */
+    suspend fun createAmbience(
+        name: String,
+        enabled: Boolean,
+    ): AmbienceSnapshot
+
+    /** `delete ambience`, filtered by `id` — same "filtered by id" pattern §11.6 confirms for
+     * `trigger`/`condition`/`action`. */
+    suspend fun deleteAmbience(id: Int)
+
+    /** `create trigger`, `options.object = <trigger, no id>` — the hub assigns and returns the id. */
+    suspend fun createTrigger(trigger: TriggerDto): TriggerDto
+
+    /** `delete trigger`, filtered by `id`. There's no `update trigger` — §11.6 confirms the real
+     * client always deletes and recreates instead. */
+    suspend fun deleteTrigger(id: Int)
+
+    /** `create condition`, `options.object = <condition, no id>`. */
+    suspend fun createCondition(condition: ConditionDto): ConditionDto
+
+    /** `delete condition`, filtered by `id`. Same no-update caveat as [deleteTrigger]. */
+    suspend fun deleteCondition(id: Int)
+
+    /** `create action`, `options.object = <action, no id, no nextAction>`. */
+    suspend fun createAction(action: ActionDto): ActionDto
+
+    /** `update action` — the one sub-object that genuinely has an update verb, used both to edit
+     * an action's own fields and to splice a new action onto the chain by rewriting the
+     * *previous* action's `nextAction`. */
+    suspend fun updateAction(action: ActionDto)
+
+    /** `delete action`, filtered by `id`. Deleting a non-last action in the chain has no observed
+     * "reconnect the list" support — callers must truncate everything after it themselves. */
+    suspend fun deleteAction(id: Int)
+
+    /** `create ambienceStartTrigger`, `options.object = {ambience, startTrigger}` — links a
+     * newly-created [Trigger][TriggerDto] onto `ambience.startTriggers`. */
+    suspend fun linkAmbienceStartTrigger(
+        ambienceId: Int,
+        triggerId: Int,
+    )
+
+    /** Same as [linkAmbienceStartTrigger] for `ambience.stopTriggers`. */
+    suspend fun linkAmbienceStopTrigger(
+        ambienceId: Int,
+        triggerId: Int,
+    )
+
+    /** `create ambienceCondition`, `options.object = {ambience, condition}`. */
+    suspend fun linkAmbienceCondition(
+        ambienceId: Int,
+        conditionId: Int,
+    )
 
     /** Raw unsolicited push messages; a higher layer interprets them (envelope unconfirmed, §8). */
     fun observeUpdates(): Flow<JsonObject>
@@ -200,6 +259,73 @@ class DomotalkApiImpl(
         socket.request("update", "ambience", buildJsonObject { put("object", raw) })
     }
 
+    override suspend fun createAmbience(
+        name: String,
+        enabled: Boolean,
+    ): AmbienceSnapshot {
+        val options =
+            buildJsonObject {
+                put(
+                    "object",
+                    buildJsonObject {
+                        put("name", JsonPrimitive(name))
+                        put("enabled", JsonPrimitive(enabled))
+                    },
+                )
+            }
+        val raw = asJsonObject(socket.request("create", "ambience", options))
+        return AmbienceSnapshot(json.decodeFromJsonElement(AmbienceDto.serializer(), raw), raw)
+    }
+
+    override suspend fun deleteAmbience(id: Int) {
+        socket.request("delete", "ambience", filters = idFilter(id))
+    }
+
+    override suspend fun createTrigger(trigger: TriggerDto): TriggerDto =
+        create("trigger", TriggerDto.serializer(), trigger)
+
+    override suspend fun deleteTrigger(id: Int) {
+        socket.request("delete", "trigger", filters = idFilter(id))
+    }
+
+    override suspend fun createCondition(condition: ConditionDto): ConditionDto =
+        create("condition", ConditionDto.serializer(), condition)
+
+    override suspend fun deleteCondition(id: Int) {
+        socket.request("delete", "condition", filters = idFilter(id))
+    }
+
+    override suspend fun createAction(action: ActionDto): ActionDto = create("action", ActionDto.serializer(), action)
+
+    override suspend fun updateAction(action: ActionDto) {
+        socket.request("update", "action", buildJsonObject { put("object", json.encodeToJsonElement(ActionDto.serializer(), action)) })
+    }
+
+    override suspend fun deleteAction(id: Int) {
+        socket.request("delete", "action", filters = idFilter(id))
+    }
+
+    override suspend fun linkAmbienceStartTrigger(
+        ambienceId: Int,
+        triggerId: Int,
+    ) {
+        createLink("ambienceStartTrigger", "ambience" to ambienceId, "startTrigger" to triggerId)
+    }
+
+    override suspend fun linkAmbienceStopTrigger(
+        ambienceId: Int,
+        triggerId: Int,
+    ) {
+        createLink("ambienceStopTrigger", "ambience" to ambienceId, "stopTrigger" to triggerId)
+    }
+
+    override suspend fun linkAmbienceCondition(
+        ambienceId: Int,
+        conditionId: Int,
+    ) {
+        createLink("ambienceCondition", "ambience" to ambienceId, "condition" to conditionId)
+    }
+
     override fun observeUpdates(): Flow<JsonObject> = socket.updates
 
     private fun <T> decodeList(
@@ -214,4 +340,50 @@ class DomotalkApiImpl(
         val array = element as? JsonArray ?: throw DomotalkException.MalformedResponse("Expected a JSON array")
         return array.map { it as? JsonObject ?: throw DomotalkException.MalformedResponse("Expected JSON objects") }
     }
+
+    private fun asJsonObject(element: JsonElement): JsonObject =
+        element as? JsonObject ?: throw DomotalkException.MalformedResponse("Expected a JSON object")
+
+    /** `create <subject>`, `options.object = <dto, no id>` (explicitNulls=false omits it) —
+     * decodes the response back into [T], which the hub populates with the assigned id. */
+    private suspend fun <T> create(
+        subject: String,
+        serializer: KSerializer<T>,
+        dto: T,
+    ): T {
+        val options = buildJsonObject { put("object", json.encodeToJsonElement(serializer, dto)) }
+        val element = socket.request("create", subject, options)
+        return json.decodeFromJsonElement(serializer, element)
+    }
+
+    /** `create <subject>`, `options.object = {<field>: <id>, ...}` — the ambience-sub-object
+     * join-record pattern (§11.6): `ambienceStartTrigger`/`ambienceStopTrigger`/`ambienceCondition`. */
+    private suspend fun createLink(
+        subject: String,
+        vararg fields: Pair<String, Int>,
+    ) {
+        val options =
+            buildJsonObject {
+                put(
+                    "object",
+                    buildJsonObject {
+                        fields.forEach { (key, value) -> put(key, JsonPrimitive(value)) }
+                    },
+                )
+            }
+        socket.request("create", subject, options)
+    }
+
+    /** `filters: [{"field":"id","operation":"equal","value":<id>}]` — the "delete filtered by id"
+     * pattern used throughout §11.4/§11.6. */
+    private fun idFilter(id: Int): JsonArray =
+        buildJsonArray {
+            add(
+                buildJsonObject {
+                    put("field", JsonPrimitive("id"))
+                    put("operation", JsonPrimitive("equal"))
+                    put("value", JsonPrimitive(id))
+                },
+            )
+        }
 }

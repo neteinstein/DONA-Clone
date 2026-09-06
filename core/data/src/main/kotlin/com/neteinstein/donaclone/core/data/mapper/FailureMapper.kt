@@ -12,6 +12,7 @@ fun Throwable.toDonaFailure(): DonaFailure =
         is DomotalkException.RequestTimeout, is DomotalkException.ConnectionLost ->
             DonaFailure.Unreachable(message, this)
         is DomotalkException.MalformedResponse -> DonaFailure.UnexpectedResponse(message, this)
+        is DomotalkException.RequestFailed -> DonaFailure.RequestRejected(code, message, this)
         // Not DPU-specific - covers e.g. UpdateRepositoryImpl's plain OkHttp calls to GitHub.
         is IOException -> DonaFailure.Unreachable(message, this)
         else -> DonaFailure.Unknown(message, this)

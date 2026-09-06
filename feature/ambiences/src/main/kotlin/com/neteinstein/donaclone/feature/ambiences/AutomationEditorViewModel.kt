@@ -3,9 +3,11 @@ package com.neteinstein.donaclone.feature.ambiences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.DeleteAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.Division
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +22,8 @@ data class AutomationEditorUiState(
     /** True when this screen was opened (via a long press on an existing scene) to view/edit it,
      * rather than to create a new one. */
     val isEditing: Boolean = false,
+    val isSaving: Boolean = false,
+    val isDeleting: Boolean = false,
     val name: String = "",
     val enabled: Boolean = false,
     val rooms: List<Division> = emptyList(),
@@ -29,15 +33,23 @@ data class AutomationEditorUiState(
     /** The section whose "Configure ..." sub-screen is currently shown, or null for the main
      * editor. Only one editing surface is ever open at once. */
     val editingSection: AutomationSection? = null,
-    /** Set after a save attempt — see [AutomationEditorViewModel.save]. Surfaced as a dialog/snackbar
-     * rather than silently pretending the scenario was written to the hub. */
+    /** Set after a save/delete attempt. Surfaced as a dialog rather than silently pretending the
+     * scenario was written to (or removed from) the hub. */
     val saveMessage: String? = null,
+    /** True once [saveMessage] describes a *successful* save or delete — the screen should close
+     * after the user dismisses that message rather than leaving them on stale state. */
+    val closeAfterMessage: Boolean = false,
 ) {
     /** A new scenario needs at least one trigger before it makes sense on the hub. An existing one
-     * being edited already has a trigger there (even though its shape is opaque to this app, see
-     * class doc), so editing only requires a name. */
+     * being edited already has a trigger there (even though this app has no confirmed way to read
+     * it back, see [AutomationEditorViewModel]'s class doc), so editing only requires a name. */
     val canSave: Boolean
-        get() = name.isNotBlank() && (isEditing || entriesBySection[AutomationSection.TRIGGERS]?.isNotEmpty() == true)
+        get() =
+            !isSaving && !isDeleting &&
+                name.isNotBlank() && (isEditing || entriesBySection[AutomationSection.TRIGGERS]?.isNotEmpty() == true)
+
+    val canDelete: Boolean
+        get() = isEditing && !isSaving && !isDeleting
 }
 
 /**
@@ -45,19 +57,25 @@ data class AutomationEditorUiState(
  * ([AutomationEditorScreen]) — the latter is reached by long-pressing a scene on [AmbiencesScreen].
  * When [ambienceId] is non-null, [refresh] looks the scene up (there is no single-scene hub
  * endpoint) and seeds the name/enabled fields from it; the hub only exposes those two fields per
- * [com.neteinstein.donaclone.core.model.Ambience], so that's all there is to edit. Builds the rest
- * of the draft entirely client-side from real rooms/devices — there is currently no confirmed hub
- * wire format for reading or writing a scenario's trigger/condition/action objects (see
- * `docs/PROTOCOL.md` §"Ambience/Scene": those sub-objects were never fully decompiled), so [save]
- * cannot yet persist the result to the hub. It surfaces that limitation via
- * [AutomationEditorUiState.saveMessage] instead of silently discarding the user's work or guessing
- * at a request shape that could corrupt hub state.
+ * [com.neteinstein.donaclone.core.model.Ambience], so that's all there is to seed. The rest of the
+ * draft is built entirely client-side from real rooms/devices and mapped onto the hub's confirmed
+ * trigger/condition/action wire schema by [save] (`docs/PROTOCOL.md` §11.6).
+ *
+ * **Editing limitation, by protocol design, not by choice:** saving an edit can rename the
+ * scenario, toggle it, and *add* new triggers/conditions/actions — it cannot show, change, or
+ * remove the automation's pre-existing ones. §11.4 marks the `ambienceStartTrigger`/
+ * `ambienceStopTrigger`/`ambienceCondition` join subjects "create only" (no confirmed `read`), and
+ * [com.neteinstein.donaclone.core.model.Ambience] doesn't carry `firstAction` either, so this app
+ * has no confirmed way to discover which trigger/condition/action ids already belong to an
+ * ambience being edited.
  */
 class AutomationEditorViewModel(
     private val ambienceId: Int?,
     private val getRooms: GetRoomsUseCase,
     private val getDevices: GetDevicesUseCase,
     private val getAmbiences: GetAmbiencesUseCase,
+    private val saveAutomation: SaveAutomationUseCase,
+    private val deleteAutomation: DeleteAutomationUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AutomationEditorUiState(isEditing = ambienceId != null))
     val uiState: StateFlow<AutomationEditorUiState> = _uiState.asStateFlow()
@@ -110,33 +128,85 @@ class AutomationEditorViewModel(
         }
     }
 
+    /**
+     * Removing a non-last [AutomationSection.ACTIONS] entry truncates the chain from that point
+     * on — there's no observed "delete the middle link, reconnect the chain" support on the real
+     * hub (§11.6), so this client-side draft mirrors that instead of pretending a gap-free chain
+     * is possible. [AutomationEditorScreen] confirms this with the user before calling it.
+     */
     fun removeEntry(
         section: AutomationSection,
         entryId: Long,
     ) {
         _uiState.update { state ->
-            val updated = state.entriesBySection[section].orEmpty().filterNot { it.id == entryId }
+            val current = state.entriesBySection[section].orEmpty()
+            val updated =
+                if (section == AutomationSection.ACTIONS) {
+                    val index = current.indexOfFirst { it.id == entryId }
+                    if (index == -1) current else current.take(index)
+                } else {
+                    current.filterNot { it.id == entryId }
+                }
             state.copy(entriesBySection = state.entriesBySection + (section to updated))
         }
     }
 
-    /** There's no confirmed hub API to write a scenario's trigger/condition objects yet (see
-     * class doc), so this can't actually write [uiState] to the hub — it only tells the user why,
-     * rather than either pretending success or throwing the draft away. */
+    /** True when removing this entry would also drop later entries from the chain — used by
+     * [AutomationEditorScreen] to decide whether a removal needs confirmation. */
+    fun removingTruncatesChain(
+        section: AutomationSection,
+        entryId: Long,
+    ): Boolean {
+        if (section != AutomationSection.ACTIONS) return false
+        val entries = _uiState.value.entriesBySection[section].orEmpty()
+        val index = entries.indexOfFirst { it.id == entryId }
+        return index != -1 && index != entries.lastIndex
+    }
+
     fun save() {
-        _uiState.update { state ->
-            state.copy(
-                saveMessage =
-                    if (state.isEditing) {
-                        "Editing automations isn't supported by this app yet — the hub's trigger/condition " +
-                            "format hasn't been confirmed. Your changes weren't saved to the hub."
-                    } else {
-                        "Saving new automations to the hub isn't supported by this app yet — the hub's " +
-                            "trigger/condition format hasn't been confirmed. Your draft is unchanged."
-                    },
-            )
+        val state = _uiState.value
+        val draft = state.toAutomationDraft()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            when (val result = saveAutomation(ambienceId, draft)) {
+                is DonaResult.Success ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            saveMessage = if (state.isEditing) "Automation updated." else "Automation saved.",
+                            closeAfterMessage = true,
+                        )
+                    }
+                is DonaResult.Error ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            saveMessage = "Couldn't save this automation: ${result.failure.message ?: "unknown error"}",
+                        )
+                    }
+            }
         }
     }
 
-    fun consumeSaveMessage() = _uiState.update { it.copy(saveMessage = null) }
+    fun delete() {
+        val id = ambienceId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDeleting = true) }
+            when (val result = deleteAutomation(id)) {
+                is DonaResult.Success ->
+                    _uiState.update {
+                        it.copy(isDeleting = false, saveMessage = "Automation deleted.", closeAfterMessage = true)
+                    }
+                is DonaResult.Error ->
+                    _uiState.update {
+                        it.copy(
+                            isDeleting = false,
+                            saveMessage = "Couldn't delete this automation: ${result.failure.message ?: "unknown error"}",
+                        )
+                    }
+            }
+        }
+    }
+
+    fun consumeSaveMessage() = _uiState.update { it.copy(saveMessage = null, closeAfterMessage = false) }
 }

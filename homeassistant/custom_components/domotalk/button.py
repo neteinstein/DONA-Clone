@@ -1,8 +1,16 @@
-"""pulse devices of kind `siren`/`chime` (subtypes 10/11) as momentary buttons.
+"""Every deviceOut `pulse` device as a momentary button, except subtype `lock`
+(20), which gets its own richer `lock` entity in lock.py instead.
 
-Arm/disarm pulse outputs (subtypes 30/31/32) are deliberately not exposed —
-alarm arm/disarm is out of scope for this integration, matching the
-DONA-Clone Android app's own "not implemented, on purpose" list.
+Mirrors the DONA-Clone Android app's Home screen, which renders every pulse
+device as a plain tap-to-fire tile with no special-casing by subtype (see
+`DevicesUiState.homeDisplayItemsByRoom`/`DeviceRoomGrid.DeviceCell` in the
+Android client) — that includes the alarm arm-output/disarm-output/
+arm+disarm-coupled subtypes (30/31/32) and any unrecognized subtype, not just
+siren/chime. A dedicated alarm-panel *feature* (the separate `alarm` protocol
+subject, with its own armOutput/disarmOutput/alertInput config) is a
+different thing and genuinely isn't implemented by either client — but a bare
+pulse relay of that subtype sitting in the deviceOut list is just another
+Home-screen tile, so it's exposed the same way here.
 """
 
 from __future__ import annotations
@@ -12,12 +20,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, PULSE_KIND_CHIME, PULSE_KIND_SIREN
+from .const import DOMAIN, PULSE_KIND_LOCK
 from .coordinator import DomotalkCoordinator
 from .devices import Pulse
 from .entity import DomotalkEntity
-
-_EXPOSED_KINDS = {PULSE_KIND_SIREN, PULSE_KIND_CHIME}
 
 
 async def async_setup_entry(
@@ -29,7 +35,7 @@ async def async_setup_entry(
     async_add_entities(
         DomotalkPulseButton(coordinator, device)
         for device in coordinator.devices_out.values()
-        if isinstance(device, Pulse) and device.kind in _EXPOSED_KINDS
+        if isinstance(device, Pulse) and device.kind != PULSE_KIND_LOCK
     )
 
 

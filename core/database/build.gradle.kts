@@ -37,8 +37,8 @@ ksp {
 // the same schemas/ path. Run in parallel, one can read the other's half-written file and blow up
 // with "Empty schema file" (seen intermittently in CI's Code coverage job). Serializing them avoids
 // the race without changing the exported schema's location.
-tasks.named("kspReleaseKotlin") {
-    mustRunAfter(tasks.named("kspDebugKotlin"))
+tasks.matching { it.name == "kspReleaseKotlin" }.configureEach {
+    mustRunAfter(tasks.matching { it.name == "kspDebugKotlin" })
 }
 
 dependencies {

@@ -12,6 +12,7 @@ import com.neteinstein.donaclone.core.domain.usecase.GetAuditLogUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetUsersUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
@@ -66,6 +67,7 @@ val useCaseModule =
         factoryOf(::TriggerAmbienceUseCase)
 
         factoryOf(::GetAuditLogUseCase)
+        factoryOf(::GetUsersUseCase)
 
         factoryOf(::ObserveThemeModeUseCase)
         factoryOf(::SetThemeModeUseCase)

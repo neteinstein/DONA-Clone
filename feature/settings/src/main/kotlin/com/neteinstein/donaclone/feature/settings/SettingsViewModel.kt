@@ -9,10 +9,12 @@ import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
@@ -35,6 +37,7 @@ data class SettingsUiState(
     val biometricEnabled: Boolean = false,
     val updateStatus: UpdateStatus = UpdateStatus.Idle,
     val debugModeEnabled: Boolean = false,
+    val actionConfirmationEnabled: Boolean = true,
 )
 
 class SettingsViewModel(
@@ -51,6 +54,8 @@ class SettingsViewModel(
     private val openInstallPermissionSettings: OpenInstallPermissionSettingsUseCase,
     observeDebugModeEnabled: ObserveDebugModeUseCase,
     private val setDebugModeEnabled: SetDebugModeUseCase,
+    observeActionConfirmationEnabled: ObserveActionConfirmationEnabledUseCase,
+    private val setActionConfirmationEnabled: SetActionConfirmationEnabledUseCase,
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -68,6 +73,11 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             observeDebugModeEnabled().collect { enabled -> _uiState.update { it.copy(debugModeEnabled = enabled) } }
+        }
+        viewModelScope.launch {
+            observeActionConfirmationEnabled().collect { enabled ->
+                _uiState.update { it.copy(actionConfirmationEnabled = enabled) }
+            }
         }
     }
 
@@ -88,6 +98,10 @@ class SettingsViewModel(
 
     fun onDebugModeChanged(enabled: Boolean) {
         viewModelScope.launch { setDebugModeEnabled(enabled) }
+    }
+
+    fun onActionConfirmationEnabledChanged(enabled: Boolean) {
+        viewModelScope.launch { setActionConfirmationEnabled(enabled) }
     }
 
     /**

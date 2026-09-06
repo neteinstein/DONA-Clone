@@ -86,6 +86,7 @@ fun DeviceDetailScreen(
     val category = device?.let { deviceCategoryOf(it) }
     val colors = colorsForCategory(category ?: DeviceCategory.UNKNOWN)
     var infoDevice by remember { mutableStateOf<Device?>(null) }
+    var pendingCloseShutter by remember { mutableStateOf<Device.Shutter?>(null) }
 
     Scaffold(
         topBar = {
@@ -122,7 +123,9 @@ fun DeviceDetailScreen(
                     onToggleBinaryOutput = onToggleBinaryOutput,
                     onFirePulse = onFirePulse,
                     onOpenShutter = onOpenShutter,
-                    onCloseShutter = onCloseShutter,
+                    onCloseShutter = { shutter ->
+                        if (uiState.actionConfirmationEnabled) pendingCloseShutter = shutter else onCloseShutter(shutter)
+                    },
                     onShutterPercentage = onShutterPercentage,
                     onDimmerPercentage = onDimmerPercentage,
                     onShowInfo = { infoDevice = it },
@@ -133,6 +136,30 @@ fun DeviceDetailScreen(
     infoDevice?.let { info ->
         DeviceInfoDialog(device = info, onDismiss = { infoDevice = null })
     }
+
+    pendingCloseShutter?.let { shutter ->
+        CloseShutterConfirmationDialog(
+            onConfirm = {
+                onCloseShutter(shutter)
+                pendingCloseShutter = null
+            },
+            onDismiss = { pendingCloseShutter = null },
+        )
+    }
+}
+
+@Composable
+private fun CloseShutterConfirmationDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Close blind?") },
+        text = { Text("Are you sure there is nothing preventing it from closing, such as an obstruction in its path?") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Close") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

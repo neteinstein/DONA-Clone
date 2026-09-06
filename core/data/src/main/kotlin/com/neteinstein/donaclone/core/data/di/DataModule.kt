@@ -1,5 +1,6 @@
 package com.neteinstein.donaclone.core.data.di
 
+import com.neteinstein.donaclone.core.data.actionconfirmation.ActionConfirmationRepositoryImpl
 import com.neteinstein.donaclone.core.data.ambience.AmbienceRepositoryImpl
 import com.neteinstein.donaclone.core.data.auditlog.AuditLogRepositoryImpl
 import com.neteinstein.donaclone.core.data.auth.AuthRepositoryImpl
@@ -15,6 +16,7 @@ import com.neteinstein.donaclone.core.data.theme.ThemeRepositoryImpl
 import com.neteinstein.donaclone.core.data.update.UpdateInstallerImpl
 import com.neteinstein.donaclone.core.data.update.UpdateRepositoryImpl
 import com.neteinstein.donaclone.core.data.user.UserRepositoryImpl
+import com.neteinstein.donaclone.core.domain.repository.ActionConfirmationRepository
 import com.neteinstein.donaclone.core.domain.repository.AmbienceRepository
 import com.neteinstein.donaclone.core.domain.repository.AuditLogRepository
 import com.neteinstein.donaclone.core.domain.repository.AuthRepository
@@ -57,6 +59,9 @@ val dataModule =
         single<ThemeRepository> { ThemeRepositoryImpl(themePreferences = get()) }
         single<BiometricRepository> { BiometricRepositoryImpl(biometricPreferences = get()) }
         single<DebugRepository> { DebugRepositoryImpl(debugPreferences = get()) }
+        single<ActionConfirmationRepository> {
+            ActionConfirmationRepositoryImpl(actionConfirmationPreferences = get())
+        }
         single<RoomsDisplayRepository> { RoomsDisplayRepositoryImpl(roomsDisplayPreferences = get()) }
         single<ConnectivityRepository> { ConnectivityRepositoryImpl(observer = get()) }
         single<UpdateRepository> {

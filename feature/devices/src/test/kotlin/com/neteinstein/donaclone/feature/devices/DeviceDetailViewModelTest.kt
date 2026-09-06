@@ -3,6 +3,7 @@ package com.neteinstein.donaclone.feature.devices
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.model.Device
@@ -11,10 +12,12 @@ import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -32,6 +35,7 @@ class DeviceDetailViewModelTest {
     private val getRooms = mockk<GetRoomsUseCase>()
     private val sendCommand = mockk<SendDeviceCommandUseCase>()
     private val observeDeviceUpdates = mockk<ObserveDeviceUpdatesUseCase>()
+    private val observeActionConfirmationEnabled = mockk<ObserveActionConfirmationEnabledUseCase>()
     private val updates = MutableSharedFlow<DeviceUpdate>()
 
     private val shutter = Device.Shutter(id = 2, name = "Living room blinds", roomId = 10, percentage = 40)
@@ -42,6 +46,7 @@ class DeviceDetailViewModelTest {
         coEvery { getDevices() } returns DonaResult.Success(listOf(shutter))
         coEvery { getRooms() } returns DonaResult.Success(listOf(Division(id = 10, name = "Living Room", floor = 0)))
         coEvery { observeDeviceUpdates() } returns updates
+        every { observeActionConfirmationEnabled() } returns flowOf(true)
     }
 
     @After
@@ -49,7 +54,8 @@ class DeviceDetailViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = DeviceDetailViewModel(2, getDevices, getRooms, observeDeviceUpdates, sendCommand)
+    private fun createViewModel() =
+        DeviceDetailViewModel(2, getDevices, getRooms, observeDeviceUpdates, sendCommand, observeActionConfirmationEnabled)
 
     @Test
     fun `loads the device by id and its room name`() =
@@ -72,6 +78,16 @@ class DeviceDetailViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(80, (viewModel.uiState.value.device as Device.Shutter).percentage)
+        }
+
+    @Test
+    fun `action confirmation preference is reflected in state`() =
+        runTest(dispatcher) {
+            every { observeActionConfirmationEnabled() } returns flowOf(false)
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(false, viewModel.uiState.value.actionConfirmationEnabled)
         }
 
     @Test

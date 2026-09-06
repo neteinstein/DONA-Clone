@@ -9,10 +9,12 @@ import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
@@ -57,6 +59,8 @@ class SettingsViewModelTest {
     private val openInstallPermissionSettings = mockk<OpenInstallPermissionSettingsUseCase>()
     private val observeDebugModeEnabled = mockk<ObserveDebugModeUseCase>()
     private val setDebugModeEnabled = mockk<SetDebugModeUseCase>()
+    private val observeActionConfirmationEnabled = mockk<ObserveActionConfirmationEnabledUseCase>()
+    private val setActionConfirmationEnabled = mockk<SetActionConfirmationEnabledUseCase>()
 
     @Before
     fun setUp() {
@@ -64,6 +68,7 @@ class SettingsViewModelTest {
         every { observeThemeMode() } returns flowOf(ThemeMode.SYSTEM)
         every { observeBiometricEnabled() } returns flowOf(false)
         every { observeDebugModeEnabled() } returns flowOf(false)
+        every { observeActionConfirmationEnabled() } returns flowOf(true)
     }
 
     @After
@@ -86,6 +91,8 @@ class SettingsViewModelTest {
             openInstallPermissionSettings,
             observeDebugModeEnabled,
             setDebugModeEnabled,
+            observeActionConfirmationEnabled,
+            setActionConfirmationEnabled,
         )
 
     @Test
@@ -230,6 +237,20 @@ class SettingsViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             coVerify { setDebugModeEnabled(true) }
+        }
+
+    @Test
+    fun `action confirmation is on by default and toggling it persists the new value`() =
+        runTest(dispatcher) {
+            every { getCurrentSession() } returns null
+            coEvery { setActionConfirmationEnabled(false) } just Runs
+            val viewModel = createViewModel()
+
+            assertEquals(true, viewModel.uiState.value.actionConfirmationEnabled)
+            viewModel.onActionConfirmationEnabledChanged(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { setActionConfirmationEnabled(false) }
         }
 
     @Test

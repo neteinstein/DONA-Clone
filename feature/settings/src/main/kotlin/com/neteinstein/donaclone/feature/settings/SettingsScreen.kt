@@ -64,6 +64,7 @@ fun SettingsRoute(
         onUpdateClicked = viewModel::onUpdateClicked,
         onEnableSideloadingClicked = viewModel::onEnableSideloadingClicked,
         onDebugModeChanged = viewModel::onDebugModeChanged,
+        onActionConfirmationEnabledChanged = viewModel::onActionConfirmationEnabledChanged,
     )
 }
 
@@ -79,6 +80,7 @@ fun SettingsScreen(
     onUpdateClicked: () -> Unit = {},
     onEnableSideloadingClicked: () -> Unit = {},
     onDebugModeChanged: (Boolean) -> Unit = {},
+    onActionConfirmationEnabledChanged: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val biometricAvailable =
@@ -132,6 +134,15 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            SectionHeader("Safety")
+            ListItem(
+                headlineContent = { Text("Validate to prevent unintended actions?") },
+                supportingContent = { Text("Ask for confirmation before actions that could have unintended consequences, like closing a blind") },
+                trailingContent = {
+                    Switch(checked = uiState.actionConfirmationEnabled, onCheckedChange = onActionConfirmationEnabledChanged)
+                },
+            )
 
             if (biometricAvailable) {
                 SectionHeader("Security")

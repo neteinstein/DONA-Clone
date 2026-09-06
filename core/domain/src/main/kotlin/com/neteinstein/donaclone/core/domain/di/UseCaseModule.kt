@@ -3,6 +3,7 @@ package com.neteinstein.donaclone.core.domain.di
 import com.neteinstein.donaclone.core.domain.usecase.CanInstallUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.CheckForUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ClearDownloadedUpdateUseCase
+import com.neteinstein.donaclone.core.domain.usecase.DeleteAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DeleteHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
@@ -28,6 +29,7 @@ import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetActiveHouseUseCase
@@ -65,6 +67,8 @@ val useCaseModule =
 
         factoryOf(::GetAmbiencesUseCase)
         factoryOf(::TriggerAmbienceUseCase)
+        factoryOf(::SaveAutomationUseCase)
+        factoryOf(::DeleteAutomationUseCase)
 
         factoryOf(::GetAuditLogUseCase)
         factoryOf(::GetUsersUseCase)

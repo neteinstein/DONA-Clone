@@ -9,5 +9,5 @@ import org.koin.dsl.module
 val ambiencesModule =
     module {
         viewModelOf(::AmbiencesViewModel)
-        viewModel { (ambienceId: Int?) -> AutomationEditorViewModel(ambienceId, get(), get(), get()) }
+        viewModel { (ambienceId: Int?) -> AutomationEditorViewModel(ambienceId, get(), get(), get(), get(), get()) }
     }

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeviceUnknown
 import androidx.compose.material.icons.filled.DoorFront
 import androidx.compose.material.icons.filled.Lightbulb
@@ -82,8 +83,14 @@ fun AutomationEditorRoute(
         onCancelAdding = viewModel::cancelAdding,
         onAddEntry = viewModel::addEntry,
         onRemoveEntry = viewModel::removeEntry,
+        removingTruncatesChain = viewModel::removingTruncatesChain,
         onSave = viewModel::save,
-        onConsumeSaveMessage = viewModel::consumeSaveMessage,
+        onDelete = viewModel::delete,
+        onConsumeSaveMessage = {
+            val shouldClose = uiState.closeAfterMessage
+            viewModel.consumeSaveMessage()
+            if (shouldClose) onDone()
+        },
         onClose = onDone,
     )
 }
@@ -105,7 +112,9 @@ fun AutomationEditorScreen(
     onCancelAdding: () -> Unit,
     onAddEntry: (AutomationSection, AutomationEntryDraft) -> Unit,
     onRemoveEntry: (AutomationSection, Long) -> Unit,
+    removingTruncatesChain: (AutomationSection, Long) -> Boolean = { _, _ -> false },
     onSave: () -> Unit,
+    onDelete: () -> Unit = {},
     onConsumeSaveMessage: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -126,8 +135,64 @@ fun AutomationEditorScreen(
         AlertDialog(
             onDismissRequest = onConsumeSaveMessage,
             confirmButton = { TextButton(onClick = onConsumeSaveMessage) { Text("OK") } },
-            title = { Text("Can't save yet") },
+            title = { Text(if (uiState.closeAfterMessage) "Done" else "Couldn't save") },
             text = { Text(saveMessage) },
+        )
+    }
+
+    var pendingRemoval by remember { mutableStateOf<Pair<AutomationSection, Long>?>(null) }
+    pendingRemoval?.let { (section, entryId) ->
+        AlertDialog(
+            onDismissRequest = { pendingRemoval = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRemoveEntry(section, entryId)
+                    pendingRemoval = null
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { pendingRemoval = null }) { Text("Cancel") } },
+            title = { Text("Remove this action?") },
+            text = { Text("This will also remove every action that comes after it in the chain.") },
+        )
+    }
+
+    var showSaveConfirm by remember { mutableStateOf(false) }
+    if (showSaveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSaveConfirm = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSaveConfirm = false
+                    onSave()
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showSaveConfirm = false }) { Text("Cancel") } },
+            title = { Text("Save this automation?") },
+            text = {
+                Text(
+                    if (uiState.isEditing) {
+                        "This will update \"${uiState.name}\" on the hub."
+                    } else {
+                        "This will create \"${uiState.name}\" on the hub."
+                    },
+                )
+            },
+        )
+    }
+
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    onDelete()
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } },
+            title = { Text("Delete this automation?") },
+            text = { Text("\"${uiState.name}\" will be permanently removed from the hub. This can't be undone.") },
         )
     }
 
@@ -136,6 +201,13 @@ fun AutomationEditorScreen(
             TopAppBar(
                 title = { Text(if (uiState.isEditing) "Edit automation" else "New automation") },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Cancel") } },
+                actions = {
+                    if (uiState.isEditing) {
+                        IconButton(onClick = { showDeleteConfirm = true }, enabled = uiState.canDelete) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete automation")
+                        }
+                    }
+                },
             )
         },
         bottomBar = {
@@ -143,7 +215,7 @@ fun AutomationEditorScreen(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                Button(onClick = onSave, enabled = uiState.canSave) { Text("Guardar") }
+                Button(onClick = { showSaveConfirm = true }, enabled = uiState.canSave) { Text("Guardar") }
             }
         },
     ) { padding ->
@@ -183,7 +255,16 @@ fun AutomationEditorScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     uiState.entriesBySection[section].orEmpty().forEach { entry ->
-                        EntryChip(entry = entry, onRemove = { onRemoveEntry(section, entry.id) })
+                        EntryChip(
+                            entry = entry,
+                            onRemove = {
+                                if (removingTruncatesChain(section, entry.id)) {
+                                    pendingRemoval = section to entry.id
+                                } else {
+                                    onRemoveEntry(section, entry.id)
+                                }
+                            },
+                        )
                     }
                     AddEntryCard(onClick = { onStartAdding(section) })
                 }
@@ -258,12 +339,39 @@ private fun EntryConfigScreen(
     var selectedDevice by remember { mutableStateOf<Device?>(null) }
     var hour by remember { mutableStateOf(0) }
     var minute by remember { mutableStateOf(0) }
+    var endHour by remember { mutableStateOf(23) }
+    var endMinute by remember { mutableStateOf(59) }
+    var daysOfWeek by remember { mutableStateOf((0..6).toSet()) }
+    var lowerBoundText by remember { mutableStateOf("") }
+    var upperBoundText by remember { mutableStateOf("") }
+    var statusOn by remember { mutableStateOf(true) }
+    var triggerEvent by remember { mutableStateOf(0) }
+    var binaryOutOn by remember { mutableStateOf(true) }
+    var shutterMode by remember { mutableStateOf(SHUTTER_MODE_OPEN) }
+    var actionPercentageText by remember { mutableStateOf("100") }
+    var withLast by remember { mutableStateOf(false) }
+    var delaySecondsText by remember { mutableStateOf("0") }
 
     val floors = remember(rooms) { rooms.mapNotNull { it.floor }.distinct().sorted() }
     val roomsForFloor = remember(rooms, selectedFloor) { rooms.filter { selectedFloor == null || it.floor == selectedFloor } }
     val filteredDevices = remember(devices, selectedRoomId) { devices.filter { selectedRoomId == null || it.roomId == selectedRoomId } }
 
     val canSave = if (type == AutomationEntryType.BY_DEVICE) selectedDevice != null else true
+    val showsRangeFields =
+        type == AutomationEntryType.BY_DEVICE &&
+            when (selectedDevice) {
+                is Device.AnalogInput, is Device.Counter -> section != AutomationSection.ACTIONS
+                is Device.Shutter, is Device.Dimmer -> section == AutomationSection.CONDITIONS
+                else -> false
+            }
+    val showsStatusToggle =
+        type == AutomationEntryType.BY_DEVICE && section == AutomationSection.CONDITIONS &&
+            selectedDevice.let { it is Device.BinaryOutput || it is Device.BinaryInput || it is Device.Pulse }
+    val showsEventPicker =
+        type == AutomationEntryType.BY_DEVICE &&
+            (section == AutomationSection.TRIGGERS || section == AutomationSection.FINALIZERS) &&
+            selectedDevice is Device.BinaryInput
+    val showsActionConfig = section == AutomationSection.ACTIONS && selectedDevice != null
 
     Scaffold(
         topBar = {
@@ -282,9 +390,37 @@ private fun EntryConfigScreen(
                 Button(
                     enabled = canSave,
                     onClick = {
+                        val (actionCode, actionPercentage) =
+                            if (showsActionConfig) {
+                                actionCodeAndPercentageFor(selectedDevice, binaryOutOn, shutterMode, actionPercentageText)
+                            } else {
+                                null to null
+                            }
                         val entry =
                             if (type == AutomationEntryType.BY_DEVICE) {
-                                AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = selectedDevice)
+                                AutomationEntryDraft(
+                                    id = 0,
+                                    type = AutomationEntryType.BY_DEVICE,
+                                    device = selectedDevice,
+                                    lowerBound = if (showsRangeFields) lowerBoundText.toDoubleOrNull() else null,
+                                    upperBound = if (showsRangeFields) upperBoundText.toDoubleOrNull() else null,
+                                    statusOn = statusOn,
+                                    event = if (showsEventPicker) triggerEvent else 0,
+                                    actionCode = actionCode,
+                                    actionPercentage = actionPercentage,
+                                    withLast = if (showsActionConfig) withLast else false,
+                                    delayFromLastSeconds = if (showsActionConfig) delaySecondsText.toIntOrNull() ?: 0 else 0,
+                                )
+                            } else if (section == AutomationSection.CONDITIONS) {
+                                AutomationEntryDraft(
+                                    id = 0,
+                                    type = AutomationEntryType.TIMED,
+                                    hour = hour,
+                                    minute = minute,
+                                    endHour = endHour,
+                                    endMinute = endMinute,
+                                    daysOfWeek = daysOfWeek,
+                                )
                             } else {
                                 AutomationEntryDraft(id = 0, type = AutomationEntryType.TIMED, hour = hour, minute = minute)
                             }
@@ -404,6 +540,125 @@ private fun EntryConfigScreen(
                         )
                     }
                 }
+
+                if (showsRangeFields) {
+                    Spacer(Modifier.height(16.dp))
+                    Text("Intervalo de valores", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = lowerBoundText,
+                            onValueChange = { lowerBoundText = it },
+                            label = { Text("Mínimo") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = upperBoundText,
+                            onValueChange = { upperBoundText = it },
+                            label = { Text("Máximo") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                        )
+                    }
+                }
+
+                if (showsStatusToggle) {
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Estado alvo: " + if (statusOn) "Ligado" else "Desligado")
+                        Spacer(Modifier.width(8.dp))
+                        Switch(checked = statusOn, onCheckedChange = { statusOn = it })
+                    }
+                }
+
+                if (showsEventPicker) {
+                    Spacer(Modifier.height(16.dp))
+                    Text("Evento", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to "Evento 1", 1 to "Evento 2").forEach { (value, label) ->
+                            val selected = triggerEvent == value
+                            TextButton(
+                                onClick = { triggerEvent = value },
+                                colors =
+                                    if (selected) {
+                                        ButtonDefaults.textButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                    } else {
+                                        ButtonDefaults.textButtonColors()
+                                    },
+                            ) { Text(label) }
+                        }
+                    }
+                }
+
+                if (showsActionConfig) {
+                    Spacer(Modifier.height(16.dp))
+                    Text("Ação", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    when (selectedDevice) {
+                        is Device.BinaryOutput ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (binaryOutOn) "Ligar" else "Desligar")
+                                Spacer(Modifier.width(8.dp))
+                                Switch(checked = binaryOutOn, onCheckedChange = { binaryOutOn = it })
+                            }
+
+                        is Device.Shutter -> {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(SHUTTER_MODE_OPEN to "Abrir", SHUTTER_MODE_CLOSE to "Fechar", SHUTTER_MODE_PERCENTAGE to "Percentagem")
+                                    .forEach { (value, label) ->
+                                        val selected = shutterMode == value
+                                        TextButton(
+                                            onClick = { shutterMode = value },
+                                            colors =
+                                                if (selected) {
+                                                    ButtonDefaults.textButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                                } else {
+                                                    ButtonDefaults.textButtonColors()
+                                                },
+                                        ) { Text(label) }
+                                    }
+                            }
+                            if (shutterMode == SHUTTER_MODE_PERCENTAGE) {
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = actionPercentageText,
+                                    onValueChange = { actionPercentageText = it },
+                                    label = { Text("Percentagem (0-100)") },
+                                    modifier = Modifier.width(160.dp),
+                                    singleLine = true,
+                                )
+                            }
+                        }
+
+                        is Device.Dimmer ->
+                            OutlinedTextField(
+                                value = actionPercentageText,
+                                onValueChange = { actionPercentageText = it },
+                                label = { Text("Percentagem (0-100)") },
+                                modifier = Modifier.width(160.dp),
+                                singleLine = true,
+                            )
+
+                        else -> Text("Este dispositivo dispara com uma única ação.", style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Ao mesmo tempo que a anterior")
+                        Spacer(Modifier.width(8.dp))
+                        Switch(checked = withLast, onCheckedChange = { withLast = it })
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = delaySecondsText,
+                        onValueChange = { delaySecondsText = it },
+                        label = { Text("Atraso (segundos)") },
+                        modifier = Modifier.width(160.dp),
+                        singleLine = true,
+                    )
+                }
             } else {
                 Text("Tempo de início da ação:", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
@@ -422,6 +677,47 @@ private fun EntryConfigScreen(
                         modifier = Modifier.width(80.dp),
                         singleLine = true,
                     )
+                }
+
+                if (section == AutomationSection.CONDITIONS) {
+                    Spacer(Modifier.height(16.dp))
+                    Text("Tempo de fim da condição:", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = endHour.toString().padStart(2, '0'),
+                            onValueChange = { text -> text.toIntOrNull()?.let { endHour = it.coerceIn(0, 23) } },
+                            label = { Text("h") },
+                            modifier = Modifier.width(80.dp),
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = endMinute.toString().padStart(2, '0'),
+                            onValueChange = { text -> text.toIntOrNull()?.let { endMinute = it.coerceIn(0, 59) } },
+                            label = { Text("m") },
+                            modifier = Modifier.width(80.dp),
+                            singleLine = true,
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("Dias da semana", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        DAY_LABELS.forEachIndexed { index, label ->
+                            val selected = index in daysOfWeek
+                            TextButton(
+                                onClick = {
+                                    daysOfWeek = if (selected) daysOfWeek - index else daysOfWeek + index
+                                },
+                                colors =
+                                    if (selected) {
+                                        ButtonDefaults.textButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                    } else {
+                                        ButtonDefaults.textButtonColors()
+                                    },
+                            ) { Text(label) }
+                        }
+                    }
                 }
             }
         }
@@ -458,6 +754,38 @@ private fun DevicePickerCell(
         )
     }
 }
+
+/** Monday..Sunday, matching [AutomationEntryDraft.daysOfWeek]'s 0=Monday..6=Sunday convention. */
+private val DAY_LABELS = listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+
+// Shutter.Action wire codes (§4/§11.2): CLOSE=0, OPEN=1, PERCENTAGE=2. Dimmer.Action's
+// PERCENTAGE=2 (the only code this UI ever sends for a dimmer) happens to share the same value.
+private const val SHUTTER_MODE_CLOSE = 0
+private const val SHUTTER_MODE_OPEN = 1
+private const val SHUTTER_MODE_PERCENTAGE = 2
+private const val DIMMER_ACTION_PERCENTAGE = 2
+
+/** Reads this screen's action-config UI state into the `(action, percentage)` pair
+ * [AutomationEntryDraft.actionCode]/[AutomationEntryDraft.actionPercentage] expect — `null` for a
+ * device kind [EntryConfigScreen] doesn't show a picker for (e.g. [Device.Pulse], which only has
+ * one `action` code), so [AutomationMapping]'s per-device-type default kicks in instead. */
+private fun actionCodeAndPercentageFor(
+    device: Device?,
+    binaryOutOn: Boolean,
+    shutterMode: Int,
+    percentageText: String,
+): Pair<Int?, Int?> =
+    when (device) {
+        is Device.BinaryOutput -> (if (binaryOutOn) 1 else 0) to null
+        is Device.Shutter ->
+            if (shutterMode == SHUTTER_MODE_PERCENTAGE) {
+                SHUTTER_MODE_PERCENTAGE to (percentageText.toIntOrNull()?.coerceIn(0, 100) ?: 100)
+            } else {
+                shutterMode to null
+            }
+        is Device.Dimmer -> DIMMER_ACTION_PERCENTAGE to (percentageText.toIntOrNull()?.coerceIn(0, 100) ?: 100)
+        else -> null to null
+    }
 
 private fun configureTitleFor(section: AutomationSection): String =
     when (section) {

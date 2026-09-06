@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -187,6 +188,12 @@ class DomotalkSocket(
         return try {
             val response = withTimeout(timeoutMillis) { deferred.await() }
             Timber.tag(LOG_TAG).d("<- [%d] %s", callbackId, loggableBodyFor(subject, response))
+            val code = response["code"]?.jsonPrimitive?.intOrNull
+            // §2.2 CONFIRMED (web client): code/100 <= 3 is success (1xx/2xx/3xx), else an error
+            // envelope whose "payload" carries the rejection detail.
+            if (code != null && code / 100 > 3) {
+                throw DomotalkException.RequestFailed(code, response["payload"])
+            }
             response.let(::extractPayload)
         } catch (e: TimeoutCancellationException) {
             Timber.tag(LOG_TAG).w("<- [%d] %s/%s timed out after %dms", callbackId, verb, subject, timeoutMillis)

@@ -1,13 +1,17 @@
 package com.neteinstein.donaclone.feature.ambiences
 
+import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.DeleteAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase
 import com.neteinstein.donaclone.core.model.Ambience
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.Division
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,6 +33,8 @@ class AutomationEditorViewModelTest {
     private val getRooms = mockk<GetRoomsUseCase>()
     private val getDevices = mockk<GetDevicesUseCase>()
     private val getAmbiences = mockk<GetAmbiencesUseCase>()
+    private val saveAutomation = mockk<SaveAutomationUseCase>()
+    private val deleteAutomation = mockk<DeleteAutomationUseCase>()
 
     private val kitchen = Division(id = 1, name = "Kitchen", floor = 0)
     private val light = Device.BinaryOutput(id = 1, name = "Kitchen light", roomId = 1, isOn = false)
@@ -45,7 +51,8 @@ class AutomationEditorViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel(ambienceId: Int? = null) = AutomationEditorViewModel(ambienceId, getRooms, getDevices, getAmbiences)
+    private fun createViewModel(ambienceId: Int? = null) =
+        AutomationEditorViewModel(ambienceId, getRooms, getDevices, getAmbiences, saveAutomation, deleteAutomation)
 
     @Test
     fun `a new draft cannot be saved without a name or a trigger`() =
@@ -97,17 +104,46 @@ class AutomationEditorViewModelTest {
         }
 
     @Test
-    fun `saving surfaces a message instead of pretending to persist`() =
+    fun `saving a new automation calls the use case and surfaces a success message that closes the screen`() =
         runTest(dispatcher) {
             val viewModel = createViewModel()
             dispatcher.scheduler.advanceUntilIdle()
+            coEvery { saveAutomation(null, any()) } returns DonaResult.Success(9)
 
+            viewModel.onNameChange("Movie night")
+            viewModel.addEntry(AutomationSection.TRIGGERS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
             assertNull(viewModel.uiState.value.saveMessage)
+
             viewModel.save()
-            assertTrue(viewModel.uiState.value.saveMessage != null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { saveAutomation(null, any()) }
+            val state = viewModel.uiState.value
+            assertFalse(state.isSaving)
+            assertTrue(state.closeAfterMessage)
+            assertEquals("Automation saved.", state.saveMessage)
 
             viewModel.consumeSaveMessage()
             assertNull(viewModel.uiState.value.saveMessage)
+            assertFalse(viewModel.uiState.value.closeAfterMessage)
+        }
+
+    @Test
+    fun `a failed save surfaces the failure message and keeps the draft open`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            coEvery { saveAutomation(null, any()) } returns
+                DonaResult.Error(DonaFailure.RequestRejected(code = 500, message = "hub error"))
+
+            viewModel.onNameChange("Movie night")
+            viewModel.addEntry(AutomationSection.TRIGGERS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            viewModel.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.closeAfterMessage)
+            assertTrue(state.saveMessage.orEmpty().contains("hub error"))
         }
 
     @Test
@@ -126,15 +162,73 @@ class AutomationEditorViewModelTest {
         }
 
     @Test
-    fun `saving an edit surfaces a message distinct from creating a new automation`() =
+    fun `saving an existing automation calls the use case with its id and a distinct success message`() =
         runTest(dispatcher) {
             val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
             coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+            coEvery { saveAutomation(7, any()) } returns DonaResult.Success(7)
 
             val viewModel = createViewModel(ambienceId = 7)
             dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.save()
-            assertTrue(viewModel.uiState.value.saveMessage.orEmpty().contains("Editing automations"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { saveAutomation(7, any()) }
+            assertEquals("Automation updated.", viewModel.uiState.value.saveMessage)
+        }
+
+    @Test
+    fun `deleting an existing automation calls the use case and surfaces a success message that closes the screen`() =
+        runTest(dispatcher) {
+            val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+            coEvery { deleteAutomation(7) } returns DonaResult.Success(Unit)
+
+            val viewModel = createViewModel(ambienceId = 7)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.delete()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { deleteAutomation(7) }
+            val state = viewModel.uiState.value
+            assertTrue(state.closeAfterMessage)
+            assertEquals("Automation deleted.", state.saveMessage)
+        }
+
+    @Test
+    fun `removing a non-last action entry is flagged as truncating the chain, other sections never are`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.addEntry(AutomationSection.ACTIONS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            viewModel.addEntry(AutomationSection.ACTIONS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            val actions = viewModel.uiState.value.entriesBySection[AutomationSection.ACTIONS]!!
+            val (first, second) = actions
+
+            assertTrue(viewModel.removingTruncatesChain(AutomationSection.ACTIONS, first.id))
+            assertFalse(viewModel.removingTruncatesChain(AutomationSection.ACTIONS, second.id))
+
+            viewModel.addEntry(AutomationSection.TRIGGERS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            val triggerId = viewModel.uiState.value.entriesBySection[AutomationSection.TRIGGERS]!!.single().id
+            assertFalse(viewModel.removingTruncatesChain(AutomationSection.TRIGGERS, triggerId))
+        }
+
+    @Test
+    fun `removing a non-last action entry also removes every action after it`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.addEntry(AutomationSection.ACTIONS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            viewModel.addEntry(AutomationSection.ACTIONS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            viewModel.addEntry(AutomationSection.ACTIONS, AutomationEntryDraft(id = 0, type = AutomationEntryType.BY_DEVICE, device = light))
+            val firstId = viewModel.uiState.value.entriesBySection[AutomationSection.ACTIONS]!!.first().id
+
+            viewModel.removeEntry(AutomationSection.ACTIONS, firstId)
+
+            assertTrue(viewModel.uiState.value.entriesBySection[AutomationSection.ACTIONS].orEmpty().isEmpty())
         }
 }

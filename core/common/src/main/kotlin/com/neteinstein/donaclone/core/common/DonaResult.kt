@@ -43,6 +43,15 @@ sealed interface DonaFailure {
         override val cause: Throwable? = null
     }
 
+    /** The DPU understood the request but rejected it at the RPC level — a `code >= 400`
+     * envelope (protocol notes §2.2's "CONFIRMED (web client)" note), distinct from a login
+     * rejection ([InvalidCredentials]) or a malformed/unparsable reply ([UnexpectedResponse]). */
+    data class RequestRejected(
+        val code: Int,
+        override val message: String?,
+        override val cause: Throwable? = null,
+    ) : DonaFailure
+
     data class Unknown(
         override val message: String?,
         override val cause: Throwable? = null,

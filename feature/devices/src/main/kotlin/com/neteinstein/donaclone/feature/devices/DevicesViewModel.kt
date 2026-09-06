@@ -19,6 +19,7 @@ import com.neteinstein.donaclone.core.model.DeviceDisplayItem
 import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
 import com.neteinstein.donaclone.core.model.RoomsDisplayTab
+import com.neteinstein.donaclone.core.model.dedupeRoomsByName
 import com.neteinstein.donaclone.core.model.groupDevices
 import com.neteinstein.donaclone.core.model.isActionlessSensor
 import com.neteinstein.donaclone.core.model.isDeviceOpenOrOn
@@ -141,10 +142,13 @@ class DevicesViewModel(
 
             _uiState.update { state ->
                 val failure = (roomsResult as? DonaResult.Error)?.failure ?: (devicesResult as? DonaResult.Error)?.failure
+                val fetchedRooms = (roomsResult as? DonaResult.Success)?.data ?: state.rooms
+                val fetchedDevices = (devicesResult as? DonaResult.Success)?.data ?: state.devices
+                val (rooms, devices) = dedupeRoomsByName(fetchedRooms, fetchedDevices)
                 state.copy(
                     isLoading = false,
-                    rooms = (roomsResult as? DonaResult.Success)?.data ?: state.rooms,
-                    devices = (devicesResult as? DonaResult.Success)?.data ?: state.devices,
+                    rooms = rooms,
+                    devices = devices,
                     errorMessage = failure?.message,
                 )
             }

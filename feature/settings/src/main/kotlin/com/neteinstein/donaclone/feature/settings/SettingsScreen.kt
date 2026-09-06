@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +41,7 @@ import org.koin.androidx.compose.koinViewModel
 fun SettingsRoute(
     onManageHouses: () -> Unit,
     onOpenAuditLog: () -> Unit,
+    onManageUsers: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
@@ -58,6 +60,7 @@ fun SettingsRoute(
         uiState = uiState,
         onManageHouses = onManageHouses,
         onOpenAuditLog = onOpenAuditLog,
+        onManageUsers = onManageUsers,
         onLogout = viewModel::logout,
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onBiometricEnabledChanged = viewModel::onBiometricEnabledChanged,
@@ -74,6 +77,7 @@ fun SettingsScreen(
     uiState: SettingsUiState,
     onManageHouses: () -> Unit,
     onOpenAuditLog: () -> Unit,
+    onManageUsers: () -> Unit,
     onLogout: () -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onBiometricEnabledChanged: (Boolean) -> Unit,
@@ -154,6 +158,15 @@ fun SettingsScreen(
                     },
                 )
             }
+
+            SectionHeader("Management")
+            ListItem(
+                headlineContent = { Text("Manage Users") },
+                supportingContent = { Text("Add, edit, or remove hub user accounts") },
+                leadingContent = { Icon(Icons.Filled.People, contentDescription = null) },
+                trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
+                modifier = Modifier.clickable(onClick = onManageUsers),
+            )
 
             SectionHeader("Updates")
             UpdateSection(

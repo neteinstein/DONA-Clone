@@ -44,6 +44,28 @@ data class AmbienceSnapshot(
 interface DomotalkApi {
     suspend fun readUsers(): List<UserDto>
 
+    /** `create user`, `options.object = {name, password, role, enabled, remoteAccessible}` (§11.4)
+     * — no `id` in the request; the hub assigns and returns one. [md5Password] is assumed hashed
+     * the same way as login (§2.3) — unconfirmed for this specific call. */
+    suspend fun createUser(
+        name: String,
+        md5Password: String,
+        role: Int,
+        enabled: Boolean,
+        remoteAccessible: Boolean,
+    ): UserDto
+
+    /** `update user`, `options.object = <full dto>`, optionally `options.oldPassword` (§11.4) when
+     * changing the account's password — unconfirmed whether the hub expects it MD5-hashed like
+     * login, but we mirror that convention for consistency. */
+    suspend fun updateUser(
+        user: UserDto,
+        oldMd5Password: String? = null,
+    )
+
+    /** `delete user`, filtered by `id` (§11.4). */
+    suspend fun deleteUser(id: Int)
+
     suspend fun createSession(
         userId: Int,
         md5Password: String,
@@ -157,6 +179,46 @@ class DomotalkApiImpl(
     private val json: Json,
 ) : DomotalkApi {
     override suspend fun readUsers(): List<UserDto> = decodeList(socket.request("read", "user"), UserDto.serializer())
+
+    override suspend fun createUser(
+        name: String,
+        md5Password: String,
+        role: Int,
+        enabled: Boolean,
+        remoteAccessible: Boolean,
+    ): UserDto {
+        val options =
+            buildJsonObject {
+                put(
+                    "object",
+                    buildJsonObject {
+                        put("name", JsonPrimitive(name))
+                        put("password", JsonPrimitive(md5Password))
+                        put("role", JsonPrimitive(role))
+                        put("enabled", JsonPrimitive(enabled))
+                        put("remoteAccessible", JsonPrimitive(remoteAccessible))
+                    },
+                )
+            }
+        val raw = asJsonObject(socket.request("create", "user", options))
+        return json.decodeFromJsonElement(UserDto.serializer(), raw)
+    }
+
+    override suspend fun updateUser(
+        user: UserDto,
+        oldMd5Password: String?,
+    ) {
+        val options =
+            buildJsonObject {
+                put("object", json.encodeToJsonElement(UserDto.serializer(), user))
+                oldMd5Password?.let { put("oldPassword", JsonPrimitive(it)) }
+            }
+        socket.request("update", "user", options)
+    }
+
+    override suspend fun deleteUser(id: Int) {
+        socket.request("delete", "user", filters = idFilter(id))
+    }
 
     override suspend fun createSession(
         userId: Int,

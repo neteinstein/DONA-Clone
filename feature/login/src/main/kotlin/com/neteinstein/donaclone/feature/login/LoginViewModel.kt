@@ -43,10 +43,22 @@ class LoginViewModel(
             observeHouses().collect { houses ->
                 _uiState.update { state ->
                     val updatedState = state.copy(houses = houses)
-                    if (state.selectedHouse == null && houses.isNotEmpty()) {
-                        updatedState.copy(selectedHouse = houses.first()).withPrefilledCredentials()
-                    } else {
-                        updatedState
+                    when {
+                        state.selectedHouse == null && houses.isNotEmpty() ->
+                            updatedState.copy(selectedHouse = houses.first()).withPrefilledCredentials()
+                        // The selected house's own connection details (dns/localIp/...) may have
+                        // just been edited on the Houses screen — re-sync so login() picks up the
+                        // new address instead of the stale copy captured when it was first
+                        // selected. Matched by name (the House primary key); username/password
+                        // fields are left alone since the user may be mid-edit on this screen.
+                        else -> {
+                            val refreshed = state.selectedHouse?.let { sel -> houses.find { it.name == sel.name } }
+                            if (refreshed != null && refreshed != state.selectedHouse) {
+                                updatedState.copy(selectedHouse = refreshed)
+                            } else {
+                                updatedState
+                            }
+                        }
                     }
                 }
             }

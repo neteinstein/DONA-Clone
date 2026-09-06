@@ -11,5 +11,5 @@ val devicesModule =
         viewModel { (tab: RoomsDisplayTab) ->
             DevicesViewModel(tab, get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
         }
-        viewModel { (deviceId: Int) -> DeviceDetailViewModel(deviceId, get(), get(), get(), get()) }
+        viewModel { (deviceId: Int) -> DeviceDetailViewModel(deviceId, get(), get(), get(), get(), get()) }
     }

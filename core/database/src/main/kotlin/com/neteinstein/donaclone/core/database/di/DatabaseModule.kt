@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.neteinstein.donaclone.core.database.DonaDatabase
+import com.neteinstein.donaclone.core.database.prefs.ActionConfirmationPreferences
 import com.neteinstein.donaclone.core.database.prefs.BiometricPreferences
 import com.neteinstein.donaclone.core.database.prefs.DebugPreferences
 import com.neteinstein.donaclone.core.database.prefs.RoomsDisplayPreferences
@@ -28,6 +29,7 @@ val databaseModule =
         single { ThemePreferences(androidContext().sessionDataStore) }
         single { BiometricPreferences(androidContext().sessionDataStore) }
         single { DebugPreferences(androidContext().sessionDataStore) }
+        single { ActionConfirmationPreferences(androidContext().sessionDataStore) }
         single { RoomsDisplayPreferences(androidContext().sessionDataStore) }
         single { CredentialCipher() }
     }

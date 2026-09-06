@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
 import com.neteinstein.donaclone.core.model.Device
@@ -26,6 +27,7 @@ data class DeviceDetailUiState(
     val closeAction: Device.Pulse? = null,
     val roomName: String? = null,
     val errorMessage: String? = null,
+    val actionConfirmationEnabled: Boolean = true,
 )
 
 class DeviceDetailViewModel(
@@ -34,6 +36,7 @@ class DeviceDetailViewModel(
     private val getRooms: GetRoomsUseCase,
     observeDeviceUpdates: ObserveDeviceUpdatesUseCase,
     private val sendCommand: SendDeviceCommandUseCase,
+    observeActionConfirmationEnabled: ObserveActionConfirmationEnabledUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DeviceDetailUiState())
     val uiState: StateFlow<DeviceDetailUiState> = _uiState.asStateFlow()
@@ -45,6 +48,11 @@ class DeviceDetailViewModel(
                 if (update.deviceId == deviceId) {
                     _uiState.update { state -> state.copy(device = state.device?.withUpdate(update)) }
                 }
+            }
+        }
+        viewModelScope.launch {
+            observeActionConfirmationEnabled().collect { enabled ->
+                _uiState.update { it.copy(actionConfirmationEnabled = enabled) }
             }
         }
     }

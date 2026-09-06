@@ -17,6 +17,7 @@ import com.neteinstein.donaclone.core.domain.usecase.GetUsersUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LogoutUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveConnectivityUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDebugModeUseCase
@@ -32,6 +33,7 @@ import com.neteinstein.donaclone.core.domain.usecase.RetryConnectionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SendDeviceCommandUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetActionConfirmationEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetAppForegroundUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
@@ -84,6 +86,8 @@ val useCaseModule =
         factoryOf(::SetRoomOrderUseCase)
         factoryOf(::ObserveDebugModeUseCase)
         factoryOf(::SetDebugModeUseCase)
+        factoryOf(::ObserveActionConfirmationEnabledUseCase)
+        factoryOf(::SetActionConfirmationEnabledUseCase)
 
         factoryOf(::CheckForUpdateUseCase)
         factoryOf(::DownloadUpdateUseCase)

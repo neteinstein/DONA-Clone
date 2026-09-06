@@ -38,7 +38,7 @@ class UpdateRepositoryImpl(
                 if (update.versionCode > currentVersionCode()) {
                     UpdateAvailability.Available(update)
                 } else {
-                    UpdateAvailability.UpToDate(currentVersionName())
+                    UpdateAvailability.UpToDate(currentVersionLabel())
                 }
             }
         }
@@ -72,6 +72,12 @@ class UpdateRepositoryImpl(
     @Suppress("DEPRECATION")
     private fun currentVersionName(): String =
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+
+    // versionName alone is static across every release (see the class doc), so it can't tell two
+    // different installed builds apart - append versionCode (the part that actually changes) to
+    // match the "<versionName>.<buildNumber>" format AppUpdate.versionName already uses for an
+    // available update, instead of showing the same unchanging string for every "up to date" build.
+    private fun currentVersionLabel(): String = "${currentVersionName()}.${currentVersionCode()}"
 
     private fun downloadToFile(
         url: String,

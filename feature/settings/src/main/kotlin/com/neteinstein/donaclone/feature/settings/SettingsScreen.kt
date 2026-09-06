@@ -1,12 +1,15 @@
 package com.neteinstein.donaclone.feature.settings
 
 import androidx.biometric.BiometricManager
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,6 +39,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SettingsRoute(
     onManageHouses: () -> Unit,
+    onOpenAuditLog: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
@@ -53,6 +57,7 @@ fun SettingsRoute(
     SettingsScreen(
         uiState = uiState,
         onManageHouses = onManageHouses,
+        onOpenAuditLog = onOpenAuditLog,
         onLogout = viewModel::logout,
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onBiometricEnabledChanged = viewModel::onBiometricEnabledChanged,
@@ -67,6 +72,7 @@ fun SettingsRoute(
 fun SettingsScreen(
     uiState: SettingsUiState,
     onManageHouses: () -> Unit,
+    onOpenAuditLog: () -> Unit,
     onLogout: () -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onBiometricEnabledChanged: (Boolean) -> Unit,
@@ -152,6 +158,13 @@ fun SettingsScreen(
                 trailingContent = {
                     Switch(checked = uiState.debugModeEnabled, onCheckedChange = onDebugModeChanged)
                 },
+            )
+            ListItem(
+                headlineContent = { Text("Audit Log") },
+                supportingContent = { Text("View event/audit log entries, filterable by object and date range") },
+                leadingContent = { Icon(Icons.Filled.History, contentDescription = null) },
+                trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
+                modifier = Modifier.clickable(onClick = onOpenAuditLog),
             )
         }
     }

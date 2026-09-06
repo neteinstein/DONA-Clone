@@ -3,6 +3,7 @@ package com.neteinstein.donaclone.core.network.api
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.network.dto.AmbienceDto
 import com.neteinstein.donaclone.core.network.dto.DivisionDto
+import com.neteinstein.donaclone.core.network.dto.MasterLogEntryDto
 import com.neteinstein.donaclone.core.network.dto.SessionDto
 import com.neteinstein.donaclone.core.network.dto.UserDto
 import com.neteinstein.donaclone.core.network.mapper.DeviceJsonMapper
@@ -55,6 +56,9 @@ interface DomotalkApi {
     suspend fun readDeviceIn(): List<DeviceSnapshot>
 
     suspend fun readAmbiences(): List<AmbienceSnapshot>
+
+    /** Event/audit log (§2.4), narrowed by an `objectId`/`date`-range [filters] array. */
+    suspend fun readMasterLog(filters: JsonArray? = null): List<MasterLogEntryDto>
 
     suspend fun sendBinaryOutputAction(
         raw: JsonObject,
@@ -138,6 +142,9 @@ class DomotalkApiImpl(
         asJsonObjects(socket.request("read", "ambience")).map { raw ->
             AmbienceSnapshot(json.decodeFromJsonElement(AmbienceDto.serializer(), raw), raw)
         }
+
+    override suspend fun readMasterLog(filters: JsonArray?): List<MasterLogEntryDto> =
+        decodeList(socket.request("read", "masterLog", filters = filters), MasterLogEntryDto.serializer())
 
     override suspend fun sendBinaryOutputAction(
         raw: JsonObject,

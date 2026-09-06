@@ -35,12 +35,18 @@ Google Home  <-->  Google Assistant  <-->  Home Assistant  <-->  domotalk hub  <
 | `dimmer` | `light` (brightness) |
 | `shutter` | `cover` (open/close/set position) |
 | `pulse`, subtype `lock` | `lock` |
-| `pulse`, subtype `siren`/`chime` | `button` |
+| `pulse`, any other subtype (siren, chime, arm/disarm outputs, unrecognized) | `button` |
+| `binaryIn` (door/window contact, motion, ...) | `binary_sensor` |
+| `analogIn` (temperature, humidity, light level, ...) | `sensor` |
 | `ambience` ("Scenario") | `scene` |
 
-Not exposed, on purpose (matching the DONA-Clone app's own "not implemented,
-on purpose" list): alarm arm/disarm pulse outputs, cameras, the video door
-intercom.
+This lines up 1:1 with what the DONA-Clone Android app itself shows: every
+`deviceOut` device is an "action" on its Home screen (so it gets a
+correspondingly interactive HA entity), and every `deviceIn` device with no
+action of its own is a read-only tile on its Sensors screen (so it gets a
+read-only `binary_sensor`/`sensor`). Not exposed, since the app doesn't model
+them as a distinct device type either: cameras, the video door intercom, and
+anything the hub reports in a shape this integration can't classify.
 
 State updates arrive live over the same push channel the hub uses for
 everything else — no polling.

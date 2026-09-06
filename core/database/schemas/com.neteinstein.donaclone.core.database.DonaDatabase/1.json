@@ -1,0 +1,88 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "1da441619f4948504ffb6b87e7eb6bf7",
+    "entities": [
+      {
+        "tableName": "houses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `dns` TEXT, `secureDns` INTEGER NOT NULL, `localIp` TEXT, `secureLocalIp` INTEGER NOT NULL, `username` TEXT NOT NULL, `password` TEXT NOT NULL, `stayConnected` INTEGER NOT NULL, `notificationId` TEXT, `codeOnDisarmAlarm` INTEGER NOT NULL, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dns",
+            "columnName": "dns",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "secureDns",
+            "columnName": "secureDns",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localIp",
+            "columnName": "localIp",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "secureLocalIp",
+            "columnName": "secureLocalIp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "username",
+            "columnName": "username",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "password",
+            "columnName": "password",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stayConnected",
+            "columnName": "stayConnected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notificationId",
+            "columnName": "notificationId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "codeOnDisarmAlarm",
+            "columnName": "codeOnDisarmAlarm",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1da441619f4948504ffb6b87e7eb6bf7')"
+    ]
+  }
+}

@@ -17,6 +17,7 @@ import com.neteinstein.donaclone.core.model.DeviceCommand
 import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
 import com.neteinstein.donaclone.core.model.PulseKind
+import com.neteinstein.donaclone.core.model.RoomsDisplayTab
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -62,8 +63,8 @@ class DevicesViewModelTest {
         coEvery { getDevices() } returns DonaResult.Success(listOf(light, shutter, lock))
         coEvery { observeDeviceUpdates() } returns updates
         every { getCurrentSession() } returns null
-        every { observeRoomsExpandedByDefault() } returns flowOf(true)
-        coEvery { setRoomsExpandedByDefault(any()) } returns Unit
+        every { observeRoomsExpandedByDefault(any()) } returns flowOf(true)
+        coEvery { setRoomsExpandedByDefault(any(), any()) } returns Unit
         every { observeRoomOrder() } returns flowOf(emptyList())
         coEvery { setRoomOrder(any()) } returns Unit
     }
@@ -73,8 +74,9 @@ class DevicesViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() =
+    private fun createViewModel(tab: RoomsDisplayTab = RoomsDisplayTab.HOME) =
         DevicesViewModel(
+            tab,
             getRooms,
             getDevices,
             sendCommand,
@@ -185,6 +187,20 @@ class DevicesViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(listOf(10, 20), viewModel.uiState.value.roomOrder)
+        }
+
+    @Test
+    fun `collapsing all rooms persists the expanded-by-default flag under this instance's own tab`() =
+        runTest(dispatcher) {
+            val kitchen = Device.BinaryOutput(id = 5, name = "Kitchen plug", roomId = 20, isOn = false)
+            coEvery { getDevices() } returns DonaResult.Success(listOf(kitchen))
+            val viewModel = createViewModel(RoomsDisplayTab.SENSORS)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.toggleAllRooms(viewModel.uiState.value.homeDisplayItemsByRoom)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { setRoomsExpandedByDefault(RoomsDisplayTab.SENSORS, false) }
         }
 
     @Test

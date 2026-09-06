@@ -18,6 +18,7 @@ import com.neteinstein.donaclone.core.model.DeviceCommand
 import com.neteinstein.donaclone.core.model.DeviceDisplayItem
 import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
+import com.neteinstein.donaclone.core.model.RoomsDisplayTab
 import com.neteinstein.donaclone.core.model.groupDevices
 import com.neteinstein.donaclone.core.model.isActionlessSensor
 import com.neteinstein.donaclone.core.model.isDeviceOpenOrOn
@@ -90,6 +91,11 @@ data class DevicesUiState(
 }
 
 class DevicesViewModel(
+    /** Which tab this instance backs — Home and Sensors each get their own instance (see
+     * [DevicesModule]), and each persists its own "expanded by default" preference under this key
+     * so collapsing every room on one tab doesn't change what the other tab shows next time it's
+     * opened fresh. */
+    private val tab: RoomsDisplayTab,
     private val getRooms: GetRoomsUseCase,
     private val getDevices: GetDevicesUseCase,
     private val sendCommand: SendDeviceCommandUseCase,
@@ -150,7 +156,7 @@ class DevicesViewModel(
 
             if (!hasSeededCollapseState) {
                 hasSeededCollapseState = true
-                val expandedByDefault = observeRoomsExpandedByDefault().first()
+                val expandedByDefault = observeRoomsExpandedByDefault(tab).first()
                 _uiState.update { state ->
                     val keys = state.roomOrder.toSet()
                     state.copy(collapsedRoomIds = if (expandedByDefault) emptySet() else keys)
@@ -234,7 +240,8 @@ class DevicesViewModel(
      * every room — a simple binary "expand all / collapse all" toggle for [itemsByRoom] (the
      * calling screen's own [DevicesUiState.homeDisplayItemsByRoom] or
      * [DevicesUiState.sensorDisplayItemsByRoom]). The resulting all-open/all-closed state is
-     * persisted as the default for the next time either tab is opened fresh. */
+     * persisted as [tab]'s own default for the next time that tab is opened fresh — the other tab
+     * keeps its own separately. */
     fun toggleAllRooms(itemsByRoom: Map<Int, List<DeviceDisplayItem>>) {
         val target =
             if (_uiState.value.allRoomsCollapsed(itemsByRoom)) {
@@ -243,7 +250,7 @@ class DevicesViewModel(
                 itemsByRoom.keys
             }
         _uiState.update { it.copy(collapsedRoomIds = target) }
-        viewModelScope.launch { setRoomsExpandedByDefault(target.isEmpty()) }
+        viewModelScope.launch { setRoomsExpandedByDefault(tab, target.isEmpty()) }
     }
 
     /** Drag-to-reorder for a room/category section header: moves [roomKey] to sit immediately

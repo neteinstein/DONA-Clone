@@ -26,13 +26,15 @@ import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceDisplayItem
+import com.neteinstein.donaclone.core.model.RoomsDisplayTab
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun DevicesRoute(
     onOpenDeviceDetail: (Int) -> Unit,
     onLoggedOut: () -> Unit,
-    viewModel: DevicesViewModel = koinViewModel(),
+    viewModel: DevicesViewModel = koinViewModel { parametersOf(RoomsDisplayTab.HOME) },
 ) {
     val uiState by viewModel.uiState.collectAsState()
 

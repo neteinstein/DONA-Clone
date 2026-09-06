@@ -1,6 +1,10 @@
 package com.neteinstein.donaclone.feature.devices
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,20 +21,23 @@ import androidx.compose.ui.Modifier
 import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
+import com.neteinstein.donaclone.core.model.RoomsDisplayTab
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * The Sensors tab: every read-only sensor with no tap action of its own (a door contact, a
  * humidity reading, a pulse counter, ...) that the Home tab excludes — see
- * [DevicesUiState.sensorDisplayItemsByRoom]. Shares [DevicesViewModel] (the device/room fetch,
- * live updates, and room order/collapse state) with the Home tab, but each tab resolves its own
- * `koinViewModel()` instance — same as every other tab in [com.neteinstein.donaclone.navigation.MainScreen]
- * — so the two tabs do independently refresh devices/rooms rather than sharing one in-memory copy.
+ * [DevicesUiState.sensorDisplayItemsByRoom]. Uses the same [DevicesViewModel] class as the Home
+ * tab, but each tab resolves its own `koinViewModel()` instance, scoped to [RoomsDisplayTab.SENSORS]
+ * — same as every other tab in [com.neteinstein.donaclone.navigation.MainScreen] — so the two tabs
+ * independently refresh devices/rooms, collapse/expand rooms, and persist their own
+ * expanded-by-default default, rather than sharing one in-memory copy or preference.
  */
 @Composable
 fun SensorsRoute(
     onOpenDeviceDetail: (Int) -> Unit,
-    viewModel: DevicesViewModel = koinViewModel(),
+    viewModel: DevicesViewModel = koinViewModel { parametersOf(RoomsDisplayTab.SENSORS) },
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -55,6 +62,12 @@ fun SensorsScreen(
     onMoveRoom: (roomKey: Int, targetRoomKey: Int) -> Unit,
 ) {
     Scaffold(
+        // MainScreen's own Scaffold + bottom nav bar already reserves space for the system
+        // navigation bar below this tab — without excluding it here too, this Scaffold (which has
+        // no bottomBar of its own) reserves that same inset a second time, leaving a large empty
+        // gap between the end of the grid and the actual bottom nav bar (mirrors the same fix on
+        // DevicesScreen).
+        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
         topBar = {
             TopAppBar(
                 title = { Text("Sensors", style = MaterialTheme.typography.titleLarge) },

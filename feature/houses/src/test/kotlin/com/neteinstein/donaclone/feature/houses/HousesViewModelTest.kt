@@ -127,6 +127,48 @@ class HousesViewModelTest {
         }
 
     @Test
+    fun `editHouseNamed opens the editor for the matching house`() =
+        runTest(dispatcher) {
+            val house = House(name = "Home", localIp = "10.0.0.1", username = "alice")
+            coEvery { observeHouses() } returns flowOf(listOf(house))
+            val viewModel = createViewModel()
+
+            viewModel.editHouseNamed("Home")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val editing = viewModel.uiState.value.mode as HousesMode.Editing
+            assertEquals(house, editing.original)
+            assertEquals(house, editing.draft)
+        }
+
+    @Test
+    fun `editHouseNamed only opens the editor once, so cancelling isn't undone`() =
+        runTest(dispatcher) {
+            coEvery { observeHouses() } returns flowOf(listOf(House(name = "Home")))
+            val viewModel = createViewModel()
+
+            viewModel.editHouseNamed("Home")
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.cancelEditing()
+            viewModel.editHouseNamed("Home")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(HousesMode.List, viewModel.uiState.value.mode)
+        }
+
+    @Test
+    fun `editHouseNamed does nothing for an unknown house`() =
+        runTest(dispatcher) {
+            coEvery { observeHouses() } returns flowOf(listOf(House(name = "Home")))
+            val viewModel = createViewModel()
+
+            viewModel.editHouseNamed("Cabin")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(HousesMode.List, viewModel.uiState.value.mode)
+        }
+
+    @Test
     fun `delete forwards to the use case`() =
         runTest(dispatcher) {
             val viewModel = createViewModel()

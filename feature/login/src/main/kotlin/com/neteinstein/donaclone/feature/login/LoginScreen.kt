@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,10 +25,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,8 +57,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -69,6 +71,7 @@ import org.koin.androidx.compose.koinViewModel
 fun LoginRoute(
     onLoggedIn: () -> Unit,
     onManageHouses: () -> Unit,
+    onEditHouse: (House) -> Unit,
     viewModel: LoginViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -104,8 +107,7 @@ fun LoginRoute(
     LoginScreen(
         uiState = uiState,
         onSelectHouse = viewModel::selectHouse,
-        onUsernameChange = viewModel::onUsernameChange,
-        onPasswordChange = viewModel::onPasswordChange,
+        onEditCredentials = { uiState.selectedHouse?.let(onEditHouse) },
         onLoginClick = viewModel::login,
         onManageHouses = onManageHouses,
     )
@@ -135,8 +137,7 @@ private const val LOGIN_SUCCESS_ANIMATION_MILLIS = 450L
 fun LoginScreen(
     uiState: LoginUiState,
     onSelectHouse: (House) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
+    onEditCredentials: () -> Unit,
     onLoginClick: () -> Unit,
     onManageHouses: () -> Unit,
 ) {
@@ -191,22 +192,17 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(16.dp))
 
-            OutlinedTextField(
+            TapToEditField(
                 value = uiState.username,
-                onValueChange = onUsernameChange,
-                label = { Text("Username") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                label = "Username",
+                onClick = onEditCredentials,
             )
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
+            TapToEditField(
                 value = uiState.password,
-                onValueChange = onPasswordChange,
-                label = { Text("Password") },
-                singleLine = true,
+                label = "Password",
+                onClick = onEditCredentials,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
             )
 
             AnimatedVisibility(visible = uiState.errorMessage != null) {
@@ -242,6 +238,40 @@ fun LoginScreen(
         ) {
             Icon(Icons.Filled.Home, contentDescription = "Manage houses")
         }
+    }
+}
+
+/** A credential field that can't be typed into. Credentials belong to the selected house, so
+ * tapping opens that house's editor — saving there flows the new values straight back into this
+ * screen (see [LoginViewModel]'s houses observer), which is the only way they change now. */
+@Composable
+private fun TapToEditField(
+    value: String,
+    label: String,
+    onClick: () -> Unit,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+) {
+    Box(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        // `enabled = false` is what makes the field inert *and* lets the tap fall through to the
+        // Box above; the disabled colors are overridden back to the enabled ones so it doesn't
+        // read as a greyed-out, unusable field.
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            enabled = false,
+            label = { Text(label) },
+            singleLine = true,
+            visualTransformation = visualTransformation,
+            trailingIcon = { Icon(Icons.Filled.Edit, contentDescription = "Edit in house settings") },
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 package com.neteinstein.donaclone.navigation
 
+import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,7 +29,8 @@ import org.koin.compose.koinInject
 
 object DonaDestinations {
     const val LOGIN = "login"
-    const val HOUSES = "houses"
+    const val HOUSES_EDIT_ARG = "editHouseName"
+    const val HOUSES = "houses?$HOUSES_EDIT_ARG={$HOUSES_EDIT_ARG}"
     const val MAIN = "main"
     const val DEVICE_DETAIL_ARG = "deviceId"
     const val DEVICE_DETAIL = "device_detail/{$DEVICE_DETAIL_ARG}"
@@ -36,6 +38,10 @@ object DonaDestinations {
     const val AUTOMATION_DETAIL_ARG = "ambienceId"
     const val AUTOMATION_DETAIL = "automation_detail/{$AUTOMATION_DETAIL_ARG}"
     const val AUDIT_LOG = "audit_log"
+
+    /** The Houses screen, optionally opening straight into [houseName]'s editor. */
+    fun housesRoute(houseName: String? = null) =
+        if (houseName == null) "houses" else "houses?$HOUSES_EDIT_ARG=${Uri.encode(houseName)}"
 
     fun deviceDetailRoute(deviceId: Int) = "device_detail/$deviceId"
 
@@ -85,12 +91,28 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
                         popUpTo(DonaDestinations.LOGIN) { inclusive = true }
                     }
                 },
-                onManageHouses = { navController.navigate(DonaDestinations.HOUSES) },
+                onManageHouses = { navController.navigate(DonaDestinations.housesRoute()) },
+                // The login screen's username/password fields are read-only — tapping one opens
+                // that house's editor, where the credentials actually live.
+                onEditHouse = { house -> navController.navigate(DonaDestinations.housesRoute(house.name)) },
             )
         }
 
-        composable(DonaDestinations.HOUSES) {
-            HousesRoute(onDone = { navController.popBackStack() })
+        composable(
+            DonaDestinations.HOUSES,
+            arguments =
+                listOf(
+                    navArgument(DonaDestinations.HOUSES_EDIT_ARG) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+        ) { backStack ->
+            HousesRoute(
+                onDone = { navController.popBackStack() },
+                editHouseName = backStack.arguments?.getString(DonaDestinations.HOUSES_EDIT_ARG),
+            )
         }
 
         composable(DonaDestinations.MAIN) {
@@ -98,7 +120,7 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
                 onOpenDeviceDetail = { deviceId ->
                     navController.navigate(DonaDestinations.deviceDetailRoute(deviceId))
                 },
-                onOpenHouses = { navController.navigate(DonaDestinations.HOUSES) },
+                onOpenHouses = { navController.navigate(DonaDestinations.housesRoute()) },
                 onOpenAuditLog = { navController.navigate(DonaDestinations.AUDIT_LOG) },
                 onLoggedOut = { navigateToLogin(navController) },
                 onCreateAutomation = { navController.navigate(DonaDestinations.AUTOMATION_EDITOR) },

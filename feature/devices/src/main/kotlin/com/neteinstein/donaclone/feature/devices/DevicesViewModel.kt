@@ -22,6 +22,7 @@ import com.neteinstein.donaclone.core.model.RoomsDisplayTab
 import com.neteinstein.donaclone.core.model.groupDevices
 import com.neteinstein.donaclone.core.model.isActionlessSensor
 import com.neteinstein.donaclone.core.model.isDeviceOpenOrOn
+import com.neteinstein.donaclone.core.model.isOrphanedActionSensor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /** Sentinel standing in for a null [Device.roomId] ("Unassigned") — shared by [DevicesScreen] for
  * rendering and by this file for collapse-state bookkeeping; same-package visibility means no
@@ -151,6 +153,22 @@ class DevicesViewModel(
             (devicesResult as? DonaResult.Success)?.data.orEmpty().forEach { device ->
                 if (device is Device.Dimmer && device.percentage > 0) {
                     lastNonZeroDimmerPercentage[device.id] = device.percentage
+                }
+            }
+
+            // Logged from the Sensors tab instance only — the Home tab's own DevicesViewModel
+            // would otherwise log the exact same devices a second time every refresh.
+            if (tab == RoomsDisplayTab.SENSORS) {
+                (devicesResult as? DonaResult.Success)?.data?.let { devices ->
+                    groupDevices(devices).filter(::isOrphanedActionSensor).forEach { orphan ->
+                        Timber.e(
+                            "Sensor '%s' (id=%d, room=%s) is named like an action but has no matching " +
+                                "device to attach to on the hub — this is expected to always pair up",
+                            orphan.primary.name,
+                            orphan.primary.id,
+                            orphan.primary.roomId,
+                        )
+                    }
                 }
             }
 

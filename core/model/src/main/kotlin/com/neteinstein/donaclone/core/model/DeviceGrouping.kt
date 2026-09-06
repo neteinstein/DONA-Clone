@@ -18,16 +18,18 @@ sealed interface DeviceDisplayItem {
     }
 
     /**
-     * [secondary] is a passive extra reading (e.g. an unused light-intensity sensor) shown only
-     * on the detail screen, never on the Home tile. [openAction]/[closeAction] are separate pulse
-     * relays that actually drive the physical device when [primary] itself has no native
-     * open/close (a native [Device.Shutter] already covers that, so action siblings are ignored
-     * when [primary] is a Shutter — see [groupDevices]).
+     * [secondaries] are passive extra readings shown only on the detail screen, never on the Home
+     * tile — an unused light-intensity sensor sharing [primary]'s state-role name, and/or an
+     * open/close-role AnalogInput/Counter sibling that reads like an action ("Open X", "Close X")
+     * but can't fire one (only a [Device.Pulse] can — see [groupDevices]). [openAction]/[closeAction]
+     * are separate pulse relays that actually drive the physical device when [primary] itself has
+     * no native open/close (a native [Device.Shutter] already covers that, so action-role Pulse
+     * siblings are ignored when [primary] is a Shutter — see [groupDevices]).
      */
     data class Grouped(
         override val primary: Device,
         override val displayName: String,
-        val secondary: Device? = null,
+        val secondaries: List<Device> = emptyList(),
         val openAction: Device.Pulse? = null,
         val closeAction: Device.Pulse? = null,
     ) : DeviceDisplayItem
@@ -143,7 +145,7 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
         // Only merge a second STATE-role device in as a hidden "secondary" when it's a passive
         // numeric reading (AnalogInput/Counter) — never silently hide a second independently
         // controllable switch/sensor that happens to share a name.
-        val secondary =
+        val stateSecondary =
             stateCandidates
                 .filter { it !== primaryParsed }
                 .map { it.device }
@@ -153,7 +155,15 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
         val openAction = openActionCandidate?.device as? Device.Pulse
         val closeAction = closeActionCandidate?.device as? Device.Pulse
 
-        if (secondary == null && openAction == null && closeAction == null) {
+        // An open/close-role sibling that isn't a Device.Pulse can never fire anything, but when
+        // it's a passive numeric reading (AnalogInput/Counter) it's still real telemetry about
+        // primary's own action (a shutter's "Open X" readback, say) — attach it as an extra
+        // secondary instead of stranding it on the Sensors tab, same as stateSecondary above.
+        val openReading = openActionCandidate?.device?.takeIf { it is Device.AnalogInput || it is Device.Counter }
+        val closeReading = closeActionCandidate?.device?.takeIf { it is Device.AnalogInput || it is Device.Counter }
+        val secondaries = listOfNotNull(stateSecondary, openReading, closeReading)
+
+        if (secondaries.isEmpty() && openAction == null && closeAction == null) {
             // A same-named "On/Off"/"Ligar-Desligar" toggle relay that couldn't be wired as an
             // action (it isn't a Device.Pulse) is presumed a redundant, non-functional duplicate
             // of a state device that's already independently controllable on its own (a light's
@@ -173,18 +183,18 @@ fun groupDevices(devices: List<Device>): List<DeviceDisplayItem> {
         }
 
         stateCandidates
-            .filter { it !== primaryParsed && it.device.id != secondary?.id }
+            .filter { it !== primaryParsed && it.device.id != stateSecondary?.id }
             .forEach { result += DeviceDisplayItem.Solo(it.device) } // any other duplicate stays untouched
-        group.filter { it.role == NameRole.OPEN_ACTION && it.device !== openAction }
+        group.filter { it.role == NameRole.OPEN_ACTION && it.device !== openAction && it.device !== openReading }
             .forEach { result += DeviceDisplayItem.Solo(it.device) } // extra duplicates, don't drop
-        group.filter { it.role == NameRole.CLOSE_ACTION && it.device !== closeAction }
+        group.filter { it.role == NameRole.CLOSE_ACTION && it.device !== closeAction && it.device !== closeReading }
             .forEach { result += DeviceDisplayItem.Solo(it.device) }
 
         result +=
             DeviceDisplayItem.Grouped(
                 primary = primaryParsed.device,
                 displayName = primaryParsed.baseName,
-                secondary = secondary,
+                secondaries = secondaries,
                 openAction = openAction,
                 closeAction = closeAction,
             )
@@ -211,6 +221,23 @@ val DeviceDisplayItem.isActionlessSensor: Boolean
         val hasGroupedAction = this is DeviceDisplayItem.Grouped && (openAction != null || closeAction != null)
         return !hasOwnAction && !hasGroupedAction
     }
+
+/**
+ * True for a [DeviceDisplayItem.Solo] wrapping a passive numeric reading (AnalogInput/Counter)
+ * whose name reads as a directional or toggle action ("Open X", "Close X", "On/Off X", "Abrir X",
+ * ...) per the same prefixes [groupDevices] itself recognizes, but which [groupDevices] could not
+ * attach to any action-capable device sharing its room + base name — see the `secondaries`
+ * doc on [DeviceDisplayItem.Grouped]. Every such sensor is expected to have a real action
+ * counterpart on the hub; one that doesn't signals a naming/wiring mismatch in the hub's own
+ * device setup, not normal input, so callers should log it as an error rather than accept it
+ * silently (see `DevicesViewModel.refresh`).
+ */
+fun isOrphanedActionSensor(item: DeviceDisplayItem): Boolean {
+    if (item !is DeviceDisplayItem.Solo) return false
+    val device = item.primary
+    if (device !is Device.AnalogInput && device !is Device.Counter) return false
+    return parseName(device.name).second != NameRole.STATE
+}
 
 /**
  * Generic "is this device currently open/on/active" used for the grouped tile's smart-toggle tap

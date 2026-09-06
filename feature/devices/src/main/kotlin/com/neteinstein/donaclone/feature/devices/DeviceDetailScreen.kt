@@ -115,7 +115,7 @@ fun DeviceDetailScreen(
                     device = device,
                     roomName = uiState.roomName,
                     category = category ?: DeviceCategory.UNKNOWN,
-                    secondary = uiState.secondaryDevice,
+                    secondaries = uiState.secondaryDevices,
                     openAction = uiState.openAction,
                     closeAction = uiState.closeAction,
                     modifier = Modifier.padding(padding),
@@ -140,7 +140,7 @@ private fun DeviceDetailContent(
     device: Device,
     roomName: String?,
     category: DeviceCategory,
-    secondary: Device?,
+    secondaries: List<Device>,
     openAction: Device.Pulse?,
     closeAction: Device.Pulse?,
     modifier: Modifier = Modifier,
@@ -199,7 +199,7 @@ private fun DeviceDetailContent(
         Box(modifier = Modifier.padding(top = 32.dp).fillMaxWidth()) {
             DeviceActions(
                 device = device,
-                secondary = secondary,
+                secondaries = secondaries,
                 openAction = openAction,
                 closeAction = closeAction,
                 onToggleBinaryOutput = onToggleBinaryOutput,
@@ -217,7 +217,7 @@ private fun DeviceDetailContent(
 @Composable
 private fun DeviceActions(
     device: Device,
-    secondary: Device?,
+    secondaries: List<Device>,
     openAction: Device.Pulse?,
     closeAction: Device.Pulse?,
     onToggleBinaryOutput: (Device.BinaryOutput) -> Unit,
@@ -269,9 +269,9 @@ private fun DeviceActions(
             }
         }
 
-        if (secondary != null) {
+        secondaries.forEach { secondary ->
             Text(
-                text = "Also reports: ${stateLabelFor(secondary)}",
+                text = "Also reports: ${secondary.name} — ${stateLabelFor(secondary)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =

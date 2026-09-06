@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 /**
  * Remembers which [com.neteinstein.donaclone.core.database.house.HouseEntity] was last used so
@@ -16,7 +15,7 @@ import kotlinx.coroutines.flow.map
 class SessionPreferences(
     private val dataStore: DataStore<Preferences>,
 ) {
-    val activeHouseName: Flow<String?> = dataStore.data.map { it[ACTIVE_HOUSE_NAME_KEY] }
+    val activeHouseName: Flow<String?> = dataStore.mapDistinct { it[ACTIVE_HOUSE_NAME_KEY] }
 
     suspend fun setActiveHouseName(name: String?) {
         dataStore.edit { prefs ->

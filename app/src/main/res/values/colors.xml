@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- DONA brand teal, taken from the original app's welcome screen accent (#00a79d) -->
-    <color name="dona_teal">#00A79D</color>
+    <!-- Dark teal used for the splash screen background -->
     <color name="dona_teal_dark">#00332F</color>
     <color name="splash_background">#00332F</color>
+
+    <!-- DONA brand green, used for the app launcher icon -->
+    <color name="dona_green">#00A651</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>

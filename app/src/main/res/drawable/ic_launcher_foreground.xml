@@ -4,19 +4,9 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bold house silhouette, generously padded to stay legible at launcher sizes
-         like Google's Home app icon; the wedge cut from the roof (filled in the
-         background teal) and its stroked inner crease echo the folded-paper mark
-         in the DONA logo. -->
+    <!-- Bold house glyph (roof eaves + door notch), styled after Google's Home app icon,
+         sized to sit inside the adaptive-icon safe zone (18dp inset on each side). -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,20 L22,46 L22,88 L86,88 L86,46 Z" />
-    <path
-        android:fillColor="@color/dona_teal"
-        android:pathData="M54,20 L86,46 L66,64 Z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.5"
-        android:pathData="M62,32 L78,44 L66,54 Z" />
+        android:fillColor="@color/dona_green"
+        android:pathData="M48,78 L48,60 L60,60 L60,78 L75,78 L75,54 L84,54 L54,27 L24,54 L33,54 L33,78 Z" />
 </vector>

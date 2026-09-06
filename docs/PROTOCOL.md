@@ -652,3 +652,68 @@ Request shape is always `{"verb": <string>, "subject": <string>, "options"?: {..
 ### 11.5 This repo's implementation status against the confirmed catalogue
 
 [`DomotalkApi.kt`](../core/network/src/main/kotlin/com/neteinstein/donaclone/core/network/api/DomotalkApi.kt) implements a deliberately narrow slice — session (create/resume/logout, no `read session`), `room` read, `deviceOut`/`deviceIn` read (no id/room filtering), `ambience` read/update/action, `masterLog` read (no pagination), and the five device actions (binaryOut/pulse/shutter/dimmer/ambience). Every verb/subject it does implement **matches the web client exactly**, action-code-for-action-code, field-for-field — no corrections needed there. Everything in §11.4's ★-marked rows (users, roles, house/server config, floors, full room/ambience/alarm/camera/intercom CRUD, modules, backups, firmware updates, notifications) is simply **not implemented**, consistent with this being a home/control-focused client rather than a full admin console — worth keeping in mind as a checklist if/when admin-panel features are ever added, but not a bug list.
+
+### 11.6 Ambience trigger/condition/action field-level schema (CONFIRMED — fills the §3.2 "not fully decompiled" gap)
+
+§3.2 could only confirm that `startTriggers`/`stopTriggers`/`conditions` are lists of opaque sub-objects and gave up on their fields (`q4.u`/`q4.c` "not fully decompiled"). This blocked [`AutomationEditorViewModel.save()`](../feature/ambiences/src/main/kotlin/com/neteinstein/donaclone/feature/ambiences/AutomationEditorViewModel.kt), which has a full "create/edit an automation" UI already built (name, enabled, four sections mirroring the hub's own scenario structure) but stubs `save()` with *"the hub's trigger/condition format hasn't been confirmed"*. The web client's `app/components/ambiences/modals/edit{Trigger,Condition,Action,ActionSuccession}ModalController.js` resolve the exact shape:
+
+**Trigger** (`app/models/Trigger.js` for the type enum, `editTriggerModalController.js` for the `$scope.ok()` field assignment):
+```
+{
+  id, name,                                    // name is auto-set for timed triggers: time.format("HH[h] mm[m]")
+  type: 0=INTERRUPT_TRIGGER | 1=TIMED_TRIGGER | 2=SENSOR_TRIGGER | 3=CONDITION_TRIGGER,   // Trigger.Type
+
+  // TIMED_TRIGGER:
+  time: "HH:mm",                                // string, parsed/formatted with moment
+
+  // INTERRUPT_TRIGGER — device is a ThreeWayInterruptor(50) / BinaryIn(10) / OneWayInterruptor(40):
+  triggerer: <deviceIn id>, triggererType: <device.type>, triggererSubtype: <device.subtype>,
+  event: <int>,                                 // which of the device's two events fires this — BinaryIn.EVENT_ACTION1=0 / EVENT_ACTION2=1
+
+  // SENSOR_TRIGGER — device is Analog(20) or Counter(30):
+  sensor: <deviceIn id>, sensorType: <device.type>, sensorSubtype: <device.subtype>,
+  lowerBound, upperBound: <number>,             // Analog: BOTH required, must be within device.minScale/maxScale;
+                                                 // Counter: greater-than (lowerBound only) / less-than (upperBound only) / between (both)
+  deviceRoom: <room id>,                        // UI convenience field, persisted alongside the trigger
+}
+```
+**Condition** (`app/models/conditions/Condition.js`, `editConditionModalController.js`):
+```
+{
+  id, name,
+  type: 1=DEVICE_CONDITION | 6=TIMED_CONDITION,  // this is the UI-level selector enum, NOT Condition.*_TYPE below
+
+  // TIMED_CONDITION:
+  after: "HH:mm", before: "HH:mm", daysOfTheWeek: [bool, bool, bool, bool, bool, bool, bool],  // Monday..Sunday
+
+  // DEVICE_CONDITION — conditioner is any deviceIn or deviceOut id (excludes ThreeWayInterruptor):
+  conditioner: <device id>, deviceRoom: <room id>,
+  status: <int>,                                // for binary-state devices (BinaryIn/BinaryOut/Pulse): required on/off state to match
+  greaterThanValue, lesserThanValue: <number>,   // for ranged devices (Analog/Counter/Shutter/Dimmer): the value window to match
+}
+```
+Note: `Condition.ANALOG_TYPE=0 / BINARY_IN_TYPE=1 / COUNTER_TYPE=2 / BINARY_OUT_TYPE=3 / PULSE_TYPE=4 / SHUTTER_TYPE=5 / DIMMER_TYPE=6` is a **third, separate** enum in the same model file — never assigned anywhere in `editConditionModalController.js`, so it's presumably derived server-side (or purely for some other, unseen call site) from `conditioner`'s device type rather than sent by the client as an explicit discriminator. Don't send it.
+
+**Action** (`app/models/actions/Action.js`, `editActionModalController.js` + `editActionSuccessionModalController.js`) — forms a **singly-linked list**, not an array:
+```
+{
+  id,
+  type: 0=BINARY_OUT | 1=PULSE | 2=SHUTTER | 3=DIMMER,   // Action.getTypeForDevice(device) — device-type discriminator
+  device: <deviceOut id>, deviceName, deviceType (= device.type, distinct from `type` above), deviceSubtype, deviceRoom,
+  action: <int>,                                // the per-type action code — BinaryOut.Action / Shutter.Action / Dimmer.Action / Pulse.Action (§4/§11.2)
+  percentage: <int 0-100>,                       // shutter/dimmer only
+  duration: <ms, from moment(...).unix()*1000>, // OPTIONAL: delay this action's OWN effect (e.g. "turn on now, auto-off after N minutes")
+                                                  // — distinct from delayFromLast below, which is about the chain's timing, not the device's
+  nextAction: <action id, absent on the last one>,  // the chain pointer: ambience.firstAction -> action -> action.nextAction -> ... -> (absent)
+  withLast: <bool>,                              // true = fire simultaneously with the PREVIOUS action in the chain; false = fire after it
+  delayFromLast: <ms>,                           // delay before firing, measured from the previous action's start (withLast) or completion (!withLast)
+}
+```
+
+**CRUD/linking pattern (all subjects `trigger`/`condition`/`action`, all confirmed from the modal controllers' save handlers):**
+- **Create + link** (new trigger/condition on an ambience): `create trigger`/`create condition` (`options.object = <above, no id>`) → then a separate **join-record create** to attach it: `create ambienceStartTrigger`/`ambienceStopTrigger` (`options.object = {ambience: <id>, startTrigger|stopTrigger: <triggerId>}`) or `create ambienceCondition` (`options.object = {ambience: <id>, condition: <conditionId>}`).
+- **Edit an existing trigger/condition**: there is **no `update` verb used for these two** — the web client always does `delete` (filtered by `id`) **then** `create` + re-link a brand-new one in its place (`EditAmbienceController.editCondition`'s `state == 'update'` branch). Do not implement an "update trigger/condition" call; it isn't exercised by the real client and may not be honored by the hub.
+- **Edit an existing action**: the one exception — `action` genuinely has an `update` verb (needed to rewrite `nextAction` without breaking the chain), used both to edit an action's own fields and, separately, to splice a newly-created action onto the end of the chain by updating the *previous* action's `nextAction`.
+- **Delete**: `delete trigger`/`condition`/`action` filtered by `id`. Deleting a non-last **action** in the chain is observed to **truncate everything from that point on** (`$scope.actions.splice(index, $scope.actions.length - index)` after one `delete action` call) — there's no observed "delete middle node, reconnect the list" support; treat mid-chain deletion as "remove this action and everything after it" unless proven otherwise against a real hub.
+- **Multi-device actions**: selecting several output devices in one "add action" step creates **one action object per device**, each appended to the end of the (shared) chain in sequence, with `EditActionSuccessionModalController` shown once per device to set that device's own `withLast`/`delayFromLast`.
+- **New ambience, no actions/triggers yet**: `ambience.firstAction` starts unset; the first action created sets it via `update ambience` (`options.object = <ambience with firstAction set>`).

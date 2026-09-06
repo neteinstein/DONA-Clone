@@ -6,6 +6,8 @@ Decoded resources root: `apk_work/decoded`
 
 All claims below cite the exact decompiled file and line numbers they were derived from. Anything not directly observed in code is explicitly marked **UNCONFIRMED**.
 
+> **2026-09-06 update:** A live DONA hub's built-in **web UI** (AngularJS, served unminified straight from the hub — no APK decompilation needed) was inspected directly from the browser (static asset review only — page load + already-fetched `.js` files; no WebSocket RPC beyond what the page itself opens, and no login was performed). Its source is a second, independent, much higher-confidence evidence source (readable variable/function names, no obfuscation) and **resolves several items this document previously marked UNCONFIRMED**. Findings from it are marked **CONFIRMED (web client)** inline, and §11 below is new content added from it — most importantly §11.1, a transport detail that materially affects client compatibility. The web client's own source files are referenced as `app/<path>` (relative to the hub's web root) rather than decompiled class names.
+
 ---
 
 ## 0. High-level architecture
@@ -180,6 +182,18 @@ Responses are correlated back to the caller purely by `callback_id`; the exact r
 
 Standard success response envelope (inferred from every callback consumer, e.g. `u4/c.java:113-136`, `w4/e.java:78-107`): `{"payload": <JSON string or array/object>, ...}` — note `payload` is frequently itself a **JSON-encoded string** that callers re-parse with `new JSONArray(jsonObject.getString("payload"))` (e.g. `x4/c.java:206`, `w4/e.java:87`), though for single-object reads it's read directly as `getJSONObject("payload")` (`w4/c.java:134`). Errors are surfaced to the app-level callback as a non-null `Exception` (transport-level: socket closed/timeout) — **no explicit wire-level error object shape was found** in decompilable code; error handling for RPC-level failures (e.g. wrong password) is inferred from behavior, not an observed schema — **UNCONFIRMED** exact error JSON shape.
 
+**CONFIRMED (web client), resolves the above:** `app/services/webSocketFactory.js` shows every response carries a top-level **`code`** field, HTTP-status-like:
+```js
+if(callbacks.hasOwnProperty(data.callback_id)) {
+    if((data.code / 100) <= 3) {                 // 1xx/2xx/3xx -> success
+        callbacks[data.callback_id].cb.resolve(data);
+    } else {                                       // 4xx/5xx -> error
+        callbacks[data.callback_id].cb.reject(data);
+    }
+}
+```
+So the full envelope is `{"code": <int>, "payload": <...>, "callback_id": <int>, "token": <string, only on "create session">}`, and an "error" is just the *same* envelope with `code >= 400`, where `payload` carries the error detail (shown to the user as `error.payload` / `error.code` in several controllers, e.g. `settingsUpdatesController.js`'s `downloadReleaseNotesError` handler, and `settingsBackupController.js`'s restore-error handler switching on `error.code === 400 | 500 | 526`). A top-level **`code == 401`** on *any* incoming message (not just a rejected request) means the session expired — the client clears its token and force-navigates to the login screen. Observed/used codes: `400` (bad request / version mismatch on restore), `401` (session expired), `403` (rejected — e.g. wrong disarm password), `500` (server error), `526` (partial failure — payload is an array of the specific sub-objects, e.g. unreachable modules, that failed).
+
 ### 2.3 Login sequence
 
 `LoginActivity.C0()` (`LoginActivity.java:590-645`) tries, in order: (1) the Home's `dns` address if set, secure flag = `secureDns`; if that fails, (2) the Home's `localIp`, secure flag = `secureLocalIp`. Both attempts call `L0()` → `u4.e.f9873a.b(address, secure, callback)` (open the socket, §2.1), and on successful **socket connect** (not yet authenticated) proceed to the actual login:
@@ -231,6 +245,8 @@ Several `read`/`action` calls narrow results with a top-level `"filters"` array 
 ]}
 ```
 Note: `userNotificationTarget` read instead nests filters **inside** `"options"` (`com/winwel/dona/ui/MainActivity.java:156-168`) — the placement of `filters` (top-level vs. under `options`) is inconsistent across call sites in the app itself; a replacement client should try to mirror whatever the real hub firmware actually expects (**UNCONFIRMED which placement the hub firmware really honors — this could not be resolved from decompiled code alone**).
+
+**CONFIRMED (web client), resolves the above:** the web client is completely consistent — every single call site across `app/services/*CollectionFactory.js` (over 30 filtered calls, including its own `userNotificationTarget` read in `notificationCollectionFactory.js`) puts `"filters"` at the **top level** of the request object, as a sibling of `"verb"`/`"subject"`/`"options"`, never nested under `"options"`. Treat top-level `"filters"` as the correct/authoritative shape; the Android app's one `options`-nested outlier for `userNotificationTarget` (§2.4 above) is very likely just a bug in that one call site rather than a real second accepted shape. `"filters"` entries are always `{"field": "<name>", "operation": "equal"|"greater"|"lesser", "value": <any>}` — field names are **not** always the raw DB column (e.g. filtering `deviceIn` by room uses `"room_id"` even though the device's own JSON field is `"room"`; filtering by owning entity uses ad hoc names like `"alarmid"`, `"userid"`, `"videoIntercomId"`, `"counterId"`, `"objectId"` — there is no single consistent convention, match the exact field name used by the closest analogous call in `app/services/`).
 
 ---
 
@@ -454,6 +470,50 @@ So the inferred unsolicited push shape is approximately:
 
 A UI-side registration API exists for these pushes: `u4.e.f9873a.h()` returns the callback list used by e.g. `v4/i.java` (Alarm ViewModel, `b` class at line 78-105) and `w4/e.java` (Ambience ViewModel, `a` class at line 30-58) to know when to re-fetch their subject after any change is observed.
 
+**CONFIRMED (web client), fully resolves the above.** Any incoming WebSocket message whose `callback_id` doesn't match a pending request is routed to `WebSocketService.onServerMessageCallback`, wired up in `app/services/notificationCenter.js` to `notificationCenter.processNotification`. Two message shapes exist, discriminated by a top-level `"type"` field (`Notification.Type`, `app/models/Notification.js`: `INFORMATION_NOTIFICATION = 0`, `REQUEST_NOTIFICATION = 1`):
+
+**`type: 1` (REQUEST_NOTIFICATION — a live data-change push, this is what §8 was trying to reconstruct):**
+```json
+{
+  "type": 1,
+  "request": {
+    "verb": <int>,          // NOT the request-side string verb — see Request.TYPE below
+    "subject": "<string>",  // same subject vocabulary as requests, e.g. "shutter", "house", "backup", "restore"
+    "token": "<token>",     // present at least on session-delete pushes
+    "options": { ... }      // shape depends on subject, see below
+  }
+}
+```
+`request.verb` is the numeric `Request.TYPE` enum (`app/models/Request.js`), **distinct from the string verbs used on the request side**:
+```
+CREATE=0, READ=1, UPDATE=2, DELETE=3, INTERRUPT=4, ACTION=5, DELETEALL=6, REBOOT=7, RESET=8
+```
+Dispatch: `$rootScope.$broadcast('notification-request-' + request.subject, request)` — i.e. any component can `$scope.$on('notification-request-<subject>', ...)` to react live. `options` payload shape observed per subject (from actual listeners in the web client):
+- Device/entity change (any `deviceOut`/`deviceIn`/`ambience`/etc. subject): `options.object` = the full changed entity JSON — confirms §8's `message.request.options.object` guess exactly.
+- `subject: "house"`, verb `UPDATE`, partial pushes: `options.dateTime` (clock tick) or `options.object` (weather, JSON-encoded string, re-`JSON.parse`'d) — see `houseCollectionFactory.js`'s `notification-request-datetime`/`notification-request-weather` listeners.
+- `subject: "house"` full replace: `options` is itself an **array**, read as `options[0]` (`notification-request-house` listener) — i.e. for this one subject `options` holds the same shape `payload` would on a `read`, not an `{object: ...}` wrapper.
+- `subject: "server"`, verb `UPDATE`: `options.object` = updated server config (`settingsNetworkController.js`'s `serverChange`).
+- `subject: "restore"`, verb `UPDATE`: `options.progress` = restore progress (int), not an `object` wrapper (`settingsBackupController.js`).
+- `subject: "session"`, verb `DELETE`, `token` matching the client's own current token: the hub force-logged-out this session (e.g. an admin deleted the user, or another login invalidated it) — the web client immediately routes to the login screen. Also a live example of the discriminator for the earlier `code == 401` case being redundant/complementary: a session can die either via an explicit push like this, or via a later request simply coming back with `code: 401`.
+
+**`type: 0` (INFORMATION_NOTIFICATION — an alert/toast, e.g. alarm triggered, doorbell, firmware notice):** delivered with the same top-level shape as what Firebase Cloud Messaging's `additionalData` maps to (`app/services/notificationCenter.js`, `push.on('notification', ...)`) — meaning the hub can push this shape directly over the WebSocket too, not only via FCM (confirms and extends PROTOCOL.md §7's "UNCONFIRMED whether FCM carries structured data" — irrelevant for a WebSocket-only client, since the same structured object arrives natively over the socket):
+```json
+{
+  "type": 0,
+  "id": <int>,
+  "status": <int>,              // Notification.Status: WAITING=0, DELIVERED=1, SEEN=2, EXPIRED=3, FAILED=4
+  "titleLocKey": "<i18n key>", "titleLocArgs": [...],   // JSON-encoded string on the wire, parsed by NotificationCollection.parseNotification
+  "bodyLocKey": "<i18n key>",  "bodyLocArgs": [...],
+  "sound": "<resource name>", "icon": "<resource name>", "color": "#RRGGBB",
+  "details": <any>, "picture": "<filename under /photo/>",
+  "emissionDate": <unix seconds>, "timeToLive": <seconds>,
+  "instantaneous": <bool>, "onClickOpen": "<ui-router state name>", "target": <any>
+}
+```
+A `UserCollection`-adjacent detail: `notification.setAsSeen` sends `{"verb":"update","subject":"notification","options":{"object": <the notification with status set to SEEN=2>}}` to acknowledge one.
+
+This also gives a **second, independent confirmation of the request-envelope error semantics**: `notificationCenter.processNotification` special-cases exactly `request.verb == Request.TYPE.DELETE && request.subject == "session"`, matching the `code == 401` handling in `webSocketFactory.js` — the hub can tell a client "you're logged out" through either channel.
+
 ---
 
 ## 9. Constants / magic values quick-reference
@@ -488,11 +548,107 @@ A UI-side registration API exists for these pushes: `u4.e.f9873a.h()` returns th
 - Password is MD5-only, TLS certificate/hostname validation is fully disabled by the app, and cleartext WS is explicitly allowed — all real, exploitable-if-relevant security properties, not guesses.
 
 ### Needs live hub / packet capture to fully confirm
-- The **exact JSON success/error envelope** at the RPC level (is there a `"status"` field? what does a rejected `create session` actually look like on the wire?) — only the happy-path shape used by callers was recoverable.
-- The **exact unsolicited push-update envelope** (§8) — jadx could not decompile the handler method body; the value-extraction sub-logic is solid but the surrounding JSON structure is inferred.
-- Whether `"filters"` belongs at the top level of the request or nested under `"options"` — the app itself is inconsistent, so the real hub's accepted shape must be confirmed empirically.
+- ~~The **exact JSON success/error envelope** at the RPC level~~ — **RESOLVED, see §2.2's "CONFIRMED (web client)" note**: `{code, payload, callback_id, token?}`, `code<400` = success.
+- ~~The **exact unsolicited push-update envelope** (§8)~~ — **RESOLVED, see §8's "CONFIRMED (web client)" note and new §11.3**.
+- ~~Whether `"filters"` belongs at the top level of the request or nested under `"options"`~~ — **RESOLVED, see §2.4's "CONFIRMED (web client)" note**: top-level, consistently.
 - The **camera `url` field's actual scheme/host/port/path pattern** returned by a real hub (never observed as a literal string in the app, only that it's used opaquely).
 - The **video-door feed URL construction** from `ip` + `feedPort` + `pictureFeedUri`/`videoFeedUri` — no consumer code was found that assembles these into a request.
 - Whether FCM messages ever carry a structured `data` payload in addition to the plain `notification` payload the app is observed to handle.
 - Whether UDP ports 7777 vs 7778 correspond to two different hub product lines, firmware branches, or one is legacy — both are always probed together by the app with no visible logic distinguishing "which hub do I have" beyond the reply's own `MTYPE`/`HW`/`FW` fields.
 - Whether the hub ever broadcasts discovery announcements unprompted (vs. only replying to `domobroadcast`).
+
+---
+
+## 11. Web client findings (2026-09-06) — new material, not in the original APK analysis
+
+Evidence: a live hub's own web UI, served unminified from its web root (`app/**/*.js`). Reviewed via static asset inspection only (page load + reading already-fetched JS from the browser's network log) — **no WebSocket RPC beyond what the page opens on its own was performed, and no login was attempted**, so none of this touches §2.3's live login sequence or any read/write subject directly; it is 100% derived from reading the client's own source.
+
+### 11.1 ⚠️ Non-TLS connections carry a second, application-layer encryption envelope — the single most important finding here
+
+This is **not documented anywhere in §2** and, if missed, will make a from-scratch client silently fail (or appear to hang) against any hub reachable only over plain `http`/`ws`.
+
+`app/services/webSocketFactory.js` picks the scheme from the **page's own** protocol, not a per-connection flag: `Service.isSecure = location.protocol == 'https:'`. The WebSocket URL is still `ws(s)://<host>/ws/` with subprotocols `domotalk`/`ping-pong` exactly as §2.1 describes. But:
+
+- **If `isSecure` (page loaded over `https:`, so the socket is `wss://`)**: messages are sent/received as plain JSON text, no extra envelope — this matches everything §2 already documents.
+- **If NOT secure (page loaded over `http:`, so the socket is `ws://`)**: the hub and client perform an **RSA key exchange, then AES-CTR-encrypt every single frame in both directions, base64-encoded on the wire**:
+  1. Immediately after the socket opens, the **hub sends a plaintext text frame** shaped `"key<RSA public key PEM/DER>?<base64 IV>"` (client detects it via `message.data.indexOf("key") == 0`, splits on `?`, the PEM/key material is `message.data.substring(3, indexOf("?"))`, the IV is `Base64.unarmor(...)` of the rest).
+  2. The client generates a random 32-hex-char (128-bit) AES key client-side (`'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'.replace(/[xy]/g, ...)` — a standard UUID-v4-shaped random-hex generator, **not actually parsed as a UUID**, just used as raw key material), RSA-encrypts it with the hub's public key (`JSEncrypt`), and replies with a plaintext text frame `"respKey" + <base64 RSA ciphertext>`.
+  3. From then on, **every** `WebSocketService.sendRequest` payload is: `JSON.stringify(request)` → AES-CTR encrypt (`aesjs.ModeOfOperation.ctr(byteKey, iv)`, the client-generated key + hub-provided IV) → base64-encode → send as the WS text frame. Incoming frames are the reverse: base64-decode → AES-CTR decrypt (same key/IV, i.e. **not a fresh IV per message** — this is CTR mode reusing one IV/key for the whole connection's traffic in both directions) → `JSON.parse`.
+  4. The `"ping"`/`"pong"` heartbeat frames (§2.1/§9, 2000ms interval) are sent as **plain unencrypted text**, `"ping"` / `"pong"`, even on a non-secure connection — only `domotalk`-protocol RPC frames go through the crypto envelope.
+  5. Once the handshake completes, the app broadcasts `'WebSocketOpened'` and proceeds with login exactly as documented in §2.3 — the crypto is purely a transport-envelope concern, invisible to the RPC-level `{verb, subject, options, ...}` shape.
+
+**Why this matters:** this repo's [`DomotalkSocket.kt`](../core/network/src/main/kotlin/com/neteinstein/donaclone/core/network/socket/DomotalkSocket.kt) sends `json.encodeToString(...)` **as plaintext** unconditionally, regardless of whether the connection is `ws://` or `wss://` (its `secure` parameter only controls the URL scheme and whether to install a trust-all `SSLContext`/hostname verifier — see `connect()`). Against a hub that only exposes plain `ws://` (no TLS termination on the hub itself, e.g. `http://192.168.1.188` as configured here), **the real hub firmware evidently expects the RSA/AES envelope above**, and a client that skips it will have its requests silently rejected/ignored (or the connection will simply never progress past whatever the hub does when it can't decrypt garbage). Practically: either (a) only use `secure = true` (`wss://`) against hubs that terminate TLS themselves — the Android app already does this with a trust-all cert per §2.1, which sidesteps the whole crypto layer — or (b) implement the RSA-handshake-then-AES-CTR envelope in `DomotalkSocket` for the `ws://` path if plain-HTTP hubs need to be supported. Given trust-all TLS is already implemented and is simpler/stronger, **(a) is very likely the pragmatic fix** unless a specific hub is confirmed to reject `wss://` entirely.
+
+**UNCONFIRMED carried over:** whether the Android app (APK) ever exercises this same non-TLS crypto path — §2.1 only found `nv-websocket-client` opening `ws://`/`wss://` with a trust-all `SSLContext` for the secure case, and nothing resembling this RSA/AES layer turned up in the decompiled sources for the plain `ws://` case, which suggests either (i) the Android app was never actually intended to be used against a non-TLS hub in practice, or (ii) that code exists somewhere jadx failed to decompile (recall §2.2 already flagged one `Method not decompiled` gap in the same general area of `u4/e.java`). Treat the web client's behavior as authoritative for what the **hub firmware** expects on `ws://`, independent of what any particular client historically implemented.
+
+### 11.2 Response `code` and push-notification enums (supporting detail for §2.2/§8 above)
+
+```js
+// app/models/Request.js — numeric verb enum used ONLY in push-notification envelopes (§8/11.3), never on the request side (which uses string verbs)
+Request.TYPE = { CREATE:0, READ:1, UPDATE:2, DELETE:3, INTERRUPT:4, ACTION:5, DELETEALL:6, REBOOT:7, RESET:8 }
+
+// app/models/Notification.js
+Notification.Type   = { INFORMATION_NOTIFICATION:0, REQUEST_NOTIFICATION:1 }
+Notification.Status = { WAITING:0, DELIVERED:1, SEEN:2, EXPIRED:3, FAILED:4 }
+
+// app/models/MasterLog.js — the `type` field of each masterLog entry (audit-log event kind, distinct from Request.TYPE)
+MasterLog.Type = { CREATE:0, UPDATE:1, DELETE:2, PLAY:3, STOP:4, FINISH:5, INTERRUPT:6, ACTION:7, ARM:8, DISARM:9, SW_UPDATE:10, DELETEALL:11 }
+// each masterLog row also carries: subject (string, e.g. "house"/"alarm"/"server"/"user"/device subjects), objectId, date (unix seconds),
+// and params — a JSON-ENCODED STRING (re-`JSON.parse`'d client-side) of key/value placeholders substituted into a subject+type-specific
+// i18n template (e.g. "log.alarm.1", "log.house.2.name") to render a human-readable log line. This confirms/extends the audit-log-readable-names
+// work already in this repo (core/model/AuditLogEntry.kt) — the *raw* masterLog entry is a templated diff, not a free-text message.
+
+// app/models/actions/Action.js — a SEPARATE numeric "device type for ambience action" enum, not to be confused with the per-subject
+// Action objects below (BinaryOut.Action / Pulse.Action / Shutter.Action / Dimmer.Action) — this one tags entries inside an ambience's
+// action list so the UI knows which device-type editor to show:
+Action.BINARY_OUT = 0; Action.PULSE = 1; Action.SHUTTER = 2; Action.DIMMER = 3;
+Action.STOP_AMBIENCE = 0; Action.PLAY_AMBIENCE = 1;   // = the "action" int sent with {"verb":"action","subject":"ambience",...} (matches §4)
+Action.STOP_VIDEO = 0; Action.PLAY_VIDEO = 1;          // unseen elsewhere in this review — likely a video-intercom live-view start/stop action
+```
+
+Per-subject action codes actually sent as the request's `options.action` int (confirms §4's derivation from the Android app **exactly**, character-for-character):
+```js
+BinaryOut.Action = { TURN_OFF:0, TURN_ON:1, TOGGLE:2 }   // TOGGLE=2 is new — not used by any web-client call site found, but accepted by the model
+Pulse.Action      = { PLAY:0 }
+Shutter.Action    = { CLOSE:0, OPEN:1, PERCENTAGE:2 }
+Dimmer.Action     = { TURN_OFF:0, TURN_ON:1, PERCENTAGE:2 }   // web client only ever sends PERCENTAGE (0/100 for on/off shortcuts, matching this repo)
+```
+This repo's [`DomotalkApiImpl`](../core/network/src/main/kotlin/com/neteinstein/donaclone/core/network/api/DomotalkApi.kt) and [`PROTOCOL.md §4`](#4-device--scene--alarm-command-protocol-all-over-the-websocket-2-envelope) already use exactly these values — **no change needed there**. The one net-new, previously-undocumented value is `BinaryOut.Action.TOGGLE = 2`.
+
+### 11.3 See §8 above (updated in place) for the fully-resolved push-update envelope, `Request.TYPE`, and `Notification.Type`/`Status`.
+
+### 11.4 Full verb/subject catalogue (supersedes/extends §4's table — every subject the web client's `app/services/*CollectionFactory.js` touch)
+
+Request shape is always `{"verb": <string>, "subject": <string>, "options"?: {...}, "filters"?: [...] }` per §2.2/§2.4 (as amended above). `verb` is one of the strings `"read" | "create" | "update" | "delete" | "deleteall" | "action" | "reboot" | "reset"` — **`deleteall`, `reboot`, `reset` are new, not in the original §2.2 enumeration** (found on `masterLog` and `server` respectively). Grouped by the web client's own service-file boundaries; ★ marks a subject this repo's `DomotalkApi.kt` does **not** currently implement (expected — this repo is a display/control client, not a full admin console; listed for completeness/future work, not as a defect):
+
+| Area | Subjects (verb: purpose) | Source |
+|---|---|---|
+| Session | `session` (create: login w/ `userId`+MD5 password+`forever`; action: resume w/ `token`; delete: logout; read, filtered by `user`, `options.limit`: last session for a user ★) | `sessionCollectionFactory.js` |
+| Users ★ | `user` (read all / read w/ `hidden==false` filter / create / update, optionally with `options.oldPassword` / delete) | `userCollectionFactory.js` |
+| Roles ★ | `role` (read / update) | `roleCollectionFactory.js` |
+| House ★ | `house` (read, optionally `options.address` for geocoding / update / update w/ `options.license` to upgrade license); `datetime` (update, sets house clock/timezone) | `houseCollectionFactory.js` |
+| Floors ★ | `floor` (read / create / update / delete) | `floorCollectionFactory.js` |
+| Rooms | `room` (read all / read filtered by `id` or `floorId` / create / update / delete) — **matches this repo's `readRooms()`**, minus the CRUD | `roomCollectionFactory.js` |
+| Devices (out) | `deviceOut` (read all / read filtered by `id`) — **matches `readDeviceOut()`**; `binaryOut`/`pulse`/`shutter`/`dimmer` (create/update, via `Device.getSubjectForType`) ★; generic `device` (delete by `id` ★, or update w/ `options.originid` to copy one module's settings onto another ★) | `deviceCollectionFactory.js` |
+| Devices (in) | `deviceIn` (read all / read filtered by `id` / read filtered by `room_id`) — **matches `readDeviceIn()`**, minus filtering; `binaryIn` (create/update ★) | `deviceCollectionFactory.js` |
+| Modules ★ | `module`, `moduleV1`, `dimmerModule`, `zeroModuleOutlet`, `zeroModuleShutter`, `zeroModuleLight` (all read-only list calls) — these are the physical hub/expansion-module hardware records (type `90`, discriminated by `subtype`: `10`=ModuleV1, `20`=DimmerModule, `30`=ZeroModuleShutter, `40`=ZeroModuleLight, `50`=ZeroModuleOutlet, per `app/models/devices/Device.js`'s `Device.make`) — distinct from the LAN-discovery `MTYPE` enum in §1, which is about provisioning, not this live config data | `deviceCollectionFactory.js`, `app/models/devices/Device.js` |
+| Consumption ★ | `consumption` (read, filtered by `counterId` + optional `date` greater/lesser range, `options.resolution`) — powers the counter/consumption graphs | `deviceCollectionFactory.js` |
+| Device associations ★ | `deviceAssociation` (read filtered by `inid` / create / delete) — links an input's event (`BinaryIn.EVENT_ACTION1`/`2`) to an output action; `DeviceAssociation` type codes: `BINARY_OUT=0, PULSE=1, SHUTTER=2, DIMMER=3` | `deviceCollectionFactory.js`, `app/models/DeviceAssociation.js` |
+| Per-device notification prefs ★ | `<subject>UserNotifications` (e.g. `binaryOutUserNotifications`) (read filtered by `<subject>Id`) — dynamically named from `Device.getSubjectForType(device.type) + 'UserNotifications'` | `deviceCollectionFactory.js` |
+| Ambiences/scenes | `ambience` (read all — **matches `readAmbiences()`**; create/update — **matches `updateAmbience()`**/delete ★; action w/ `Action.PLAY_AMBIENCE`\|`STOP_AMBIENCE` — **matches `sendAmbienceAction()`**) | `ambienceCollectionFactory.js` |
+| Ambience sub-objects ★ | `trigger` (read by `id` / create, `Trigger.Type`: `INTERRUPT=0, TIMED=1, SENSOR=2, CONDITION=3` / delete); `condition` (read by `id` / create, `Condition.*_TYPE`: `ANALOG=0, BINARY_IN=1, COUNTER=2, BINARY_OUT=3, PULSE=4, SHUTTER=5, DIMMER=6` / delete); `action` (read by `id` / create / update / delete) — these are ambience-internal building blocks, separate `read`able/`create`able entities, not embedded sub-JSON as PROTOCOL.md §3.2 speculated (`q4.u`/`q4.c` "not fully decompiled"); linking join-subjects `ambienceStartTrigger`, `ambienceStopTrigger`, `ambienceCondition` (create only, `options.object = {ambience: <id>, startTrigger\|stopTrigger\|condition: <id>}`) | `ambienceCollectionFactory.js`, `app/models/Trigger.js`, `app/models/conditions/Condition.js` |
+| Alarms | `alarm` (read/create/update/delete ★, read matches this repo's alarm-adjacent needs though `DomotalkApi.kt` has no dedicated alarm reader yet); `alarmUser` (read filtered by `alarmid` / create `{alarm,user}` / delete filtered by `alarmid`+`userid`) ★; `alarmUserNotifications` (read filtered by `alarmid` / update w/ per-user `notifyOnArm/Disarm/Alert/AlertStop` flags) ★ — arm/disarm themselves are **not** a dedicated verb: arm = fire the alarm's `armOutput` as a normal `pulse` action (§4); disarm = fire `pulse` action on `armOutput`(if `coupledOutputs`)/`disarmOutput` with an extra `options.password` = MD5(pin) — **this `password` option on a `pulse` action is new, not in §4's action shape** | `alarmCollectionFactory.js` |
+| Video cameras | `videoCamera` (read all — **matches `readAmbiences()`-style list reads**, though `DomotalkApi.kt` has no camera reader yet / create/update/delete ★) | `videoCameraCollectionFactory.js` |
+| Video intercom | `videoIntercom` (read all / create/update/delete ★); `videoIntercomUserNotifications` (read filtered by `videoIntercomId` / update w/ `notifyOnDoorbell`) ★ | `videoIntercomCollectionFactory.js` |
+| Master log | `masterLog` (read, filtered by `date` greater/lesser and optional `objectId`, `options.limit`+`options.offset` for pagination — **matches `readMasterLog()`** modulo pagination options; **`deleteall`** — new verb, wipes the whole log ★) | `masterLogCollectionFactory.js` |
+| Notifications ★ | `informationNotification` (read all / delete all — clears the notification center); `notification` (update, sets `status = SEEN` on one); `userNotificationTarget` (create — registers an FCM push token / read filtered by `userid` / delete filtered by `notificationid`+`userid`, or by `notificationid` alone) | `notificationCollectionFactory.js` |
+| Server/hub config ★ | `server` (read filtered by `id`; read w/ `options.object=<upnp-check-name>` for a family of UPnP ops multiplexed through one subject — `isUpnpAvailable`, `isPortMapped`, `openPort80`, `openPort443`, `openPort4065`, `closeAll`; read w/ `options.ahk="read"` for Apple HomeKit serial; create w/ `options.ahkserial="create"` to activate HomeKit; action w/ `options.ahkserial="restart"`\|`"stop"`; update, optionally w/ `options.add=true`+`options.newName` to register a new DDNS name, or `options.license`; **`reboot`**/**`reset`** verbs, no options — new verbs) | `serverCollectionFactory.js` |
+| Backup/restore ★ | `backup` (create, no options — kicks off a backup, response `payload` is a download path under `/backups/<path>`); `restore` (create, `options.path`+`options.includeData`) | `backupCollectionFactory.js` |
+| Firmware update ★ | `update` (read — gets current update-availability status for server+modules; action w/ `options.action=Update.Action.DOWNLOAD\|UPDATE`(`0`\|`1`) targeting `options.server_id` or `options.module_id`, or `options.release_notes=true` to fetch release notes text (base64 in `payload.file`)) | `updateManager.js`, `app/models/Update.js` |
+
+**Net-new verbs found:** `deleteall`, `reboot`, `reset` (all confirmed above; none were in the APK-derived §2.2/§4).
+**Net-new subjects found beyond §4's table:** `module`, `moduleV1`, `dimmerModule`, `zeroModuleOutlet`, `zeroModuleShutter`, `zeroModuleLight`, `device` (generic), `binaryIn`, `consumption`, `deviceAssociation`, `<type>UserNotifications`, `trigger`, `condition`, `action`, `ambienceStartTrigger`, `ambienceStopTrigger`, `ambienceCondition`, `alarmUser`, `alarmUserNotifications`, `house`, `datetime`, `floor`, `user`, `role`, `server`, `backup`, `restore`, `update`, `notification`, `informationNotification` (§4 only had this one for delete via `z4/m.java`, now confirmed read+delete-all too).
+
+### 11.5 This repo's implementation status against the confirmed catalogue
+
+[`DomotalkApi.kt`](../core/network/src/main/kotlin/com/neteinstein/donaclone/core/network/api/DomotalkApi.kt) implements a deliberately narrow slice — session (create/resume/logout, no `read session`), `room` read, `deviceOut`/`deviceIn` read (no id/room filtering), `ambience` read/update/action, `masterLog` read (no pagination), and the five device actions (binaryOut/pulse/shutter/dimmer/ambience). Every verb/subject it does implement **matches the web client exactly**, action-code-for-action-code, field-for-field — no corrections needed there. Everything in §11.4's ★-marked rows (users, roles, house/server config, floors, full room/ambience/alarm/camera/intercom CRUD, modules, backups, firmware updates, notifications) is simply **not implemented**, consistent with this being a home/control-focused client rather than a full admin console — worth keeping in mind as a checklist if/when admin-panel features are ever added, but not a bug list.

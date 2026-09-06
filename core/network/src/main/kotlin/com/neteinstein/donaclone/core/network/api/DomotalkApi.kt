@@ -6,6 +6,7 @@ import com.neteinstein.donaclone.core.network.dto.AmbienceDto
 import com.neteinstein.donaclone.core.network.dto.ConditionDto
 import com.neteinstein.donaclone.core.network.dto.DivisionDto
 import com.neteinstein.donaclone.core.network.dto.MasterLogEntryDto
+import com.neteinstein.donaclone.core.network.dto.RoleDto
 import com.neteinstein.donaclone.core.network.dto.SessionDto
 import com.neteinstein.donaclone.core.network.dto.TriggerDto
 import com.neteinstein.donaclone.core.network.dto.UserDto
@@ -65,6 +66,10 @@ interface DomotalkApi {
 
     /** `delete user`, filtered by `id` (§11.4). */
     suspend fun deleteUser(id: Int)
+
+    /** `read role` (§11.4) — the hub's named role catalogue, confirmed via the web client's own
+     * translation strings (see [RoleDto]). */
+    suspend fun readRoles(): List<RoleDto>
 
     suspend fun createSession(
         userId: Int,
@@ -219,6 +224,8 @@ class DomotalkApiImpl(
     override suspend fun deleteUser(id: Int) {
         socket.request("delete", "user", filters = idFilter(id))
     }
+
+    override suspend fun readRoles(): List<RoleDto> = decodeList(socket.request("read", "role"), RoleDto.serializer())
 
     override suspend fun createSession(
         userId: Int,

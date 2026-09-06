@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,11 +20,15 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -40,12 +43,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
 import com.neteinstein.donaclone.core.designsystem.component.LoadingState
+import com.neteinstein.donaclone.core.model.Role
 import com.neteinstein.donaclone.core.model.User
 import org.koin.androidx.compose.koinViewModel
 
@@ -87,6 +90,7 @@ fun ManageUsersScreen(
         ManageUsersMode.List ->
             ManageUsersListScreen(
                 users = uiState.users,
+                roles = uiState.roles,
                 isLoading = uiState.isLoading,
                 errorMessage = uiState.errorMessage,
                 onBack = onBack,
@@ -100,6 +104,7 @@ fun ManageUsersScreen(
         is ManageUsersMode.Editing ->
             EditUserScreen(
                 draft = mode.draft,
+                roles = uiState.roles,
                 isNew = mode.original == null,
                 onBack = onCancelEditing,
                 onDraftChange = onDraftChange,
@@ -108,10 +113,18 @@ fun ManageUsersScreen(
     }
 }
 
+/** The hub doesn't guarantee every user's `role` id still matches an entry in the live role list
+ * (e.g. a role was deleted), so this falls back to showing the raw id rather than hiding it. */
+private fun roleDisplayName(
+    roleId: Int,
+    roles: List<Role>,
+): String = roles.find { it.id == roleId }?.name ?: "Role #$roleId"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ManageUsersListScreen(
     users: List<User>,
+    roles: List<Role>,
     isLoading: Boolean,
     errorMessage: String?,
     onBack: () -> Unit,
@@ -174,7 +187,12 @@ private fun ManageUsersListScreen(
                         users.forEach { user ->
                             ListItem(
                                 headlineContent = { Text(user.name) },
-                                supportingContent = { Text(if (user.enabled) "Enabled" else "Disabled") },
+                                supportingContent = {
+                                    Text(
+                                        "${roleDisplayName(user.role, roles)} · " +
+                                            if (user.enabled) "Enabled" else "Disabled",
+                                    )
+                                },
                                 leadingContent = { Icon(Icons.Filled.Person, contentDescription = null) },
                                 trailingContent = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -200,6 +218,7 @@ private fun ManageUsersListScreen(
 @Composable
 private fun EditUserScreen(
     draft: UserDraft,
+    roles: List<Role>,
     isNew: Boolean,
     onBack: () -> Unit,
     onDraftChange: ((UserDraft) -> UserDraft) -> Unit,
@@ -243,13 +262,10 @@ private fun EditUserScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            OutlinedTextField(
-                value = draft.role.toString(),
-                onValueChange = { value -> value.toIntOrNull()?.let { role -> onDraftChange { it.copy(role = role) } } },
-                label = { Text("Role") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+            RoleDropdown(
+                roles = roles,
+                selectedRoleId = draft.roleId,
+                onSelect = { role -> onDraftChange { it.copy(roleId = role.id) } },
             )
             Spacer(Modifier.height(12.dp))
 
@@ -268,6 +284,42 @@ private fun EditUserScreen(
 
             Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
                 Text("Save")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoleDropdown(
+    roles: List<Role>,
+    selectedRoleId: Int?,
+    onSelect: (Role) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = roles.find { it.id == selectedRoleId }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.name ?: selectedRoleId?.let { "Role #$it" }.orEmpty(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Role") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            roles.forEach { role ->
+                DropdownMenuItem(
+                    text = { Text(role.name) },
+                    onClick = {
+                        onSelect(role)
+                        expanded = false
+                    },
+                )
             }
         }
     }

@@ -6,9 +6,13 @@ import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.common.map
 import com.neteinstein.donaclone.core.domain.usecase.CreateUserUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DeleteUserUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetRolesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetUsersUseCase
 import com.neteinstein.donaclone.core.domain.usecase.UpdateUserUseCase
+import com.neteinstein.donaclone.core.model.Role
 import com.neteinstein.donaclone.core.model.User
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,17 +32,21 @@ sealed interface ManageUsersMode {
  * plaintext [password] field the domain model never does (write-only, §11.4). */
 data class UserDraft(
     val name: String = "",
-    /** Role is a raw hub integer with no confirmed name mapping beyond `0` = disabled/no-such-user
-     * at login time (protocol notes §2.3/§10) — edited as a plain number rather than a picker. */
-    val role: Int = 1,
+    /** Null until the hub's role catalogue ([ManageUsersUiState.roles]) has loaded and seeded a
+     * default (mirrors the hub's own web UI, which defaults to `roles[0]`). */
+    val roleId: Int? = null,
     val enabled: Boolean = true,
-    val remoteAccessible: Boolean = true,
+    /** Matches the hub's own "add user" default (`settingsAddUserController.js`). */
+    val remoteAccessible: Boolean = false,
     /** New user: required. Existing user: blank means "keep the current password". */
     val password: String = "",
 )
 
 data class ManageUsersUiState(
     val users: kotlin.collections.List<User> = emptyList(),
+    /** The hub's named role catalogue (`read role`, §11.4) — never hardcoded, since role names
+     * are configurable per house. */
+    val roles: kotlin.collections.List<Role> = emptyList(),
     val mode: ManageUsersMode = ManageUsersMode.List,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -46,6 +54,7 @@ data class ManageUsersUiState(
 
 class ManageUsersViewModel(
     private val getUsers: GetUsersUseCase,
+    private val getRoles: GetRolesUseCase,
     private val createUser: CreateUserUseCase,
     private val updateUser: UpdateUserUseCase,
     private val deleteUser: DeleteUserUseCase,
@@ -60,16 +69,35 @@ class ManageUsersViewModel(
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val result = getUsers()) {
-                is DonaResult.Success -> _uiState.update { it.copy(isLoading = false, users = result.data) }
-                is DonaResult.Error ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.failure.message ?: "Failed to load users") }
+
+            coroutineScope {
+                val usersDeferred = async { getUsers() }
+                val rolesDeferred = async { getRoles() }
+
+                when (val result = usersDeferred.await()) {
+                    is DonaResult.Success ->
+                        _uiState.update {
+                            it.copy(isLoading = false, users = result.data, roles = rolesDeferred.await().rolesOrEmpty())
+                        }
+                    is DonaResult.Error ->
+                        _uiState.update {
+                            it.copy(isLoading = false, errorMessage = result.failure.message ?: "Failed to load users")
+                        }
+                }
             }
         }
     }
 
+    /** Best-effort — the role picker just falls back to showing raw ids if this fails. */
+    private fun DonaResult<List<Role>>.rolesOrEmpty(): List<Role> =
+        when (this) {
+            is DonaResult.Success -> data
+            is DonaResult.Error -> emptyList()
+        }
+
     fun startAddingUser() {
-        _uiState.update { it.copy(mode = ManageUsersMode.Editing(original = null, draft = UserDraft())) }
+        val defaultRoleId = _uiState.value.roles.firstOrNull()?.id
+        _uiState.update { it.copy(mode = ManageUsersMode.Editing(original = null, draft = UserDraft(roleId = defaultRoleId))) }
     }
 
     fun startEditingUser(user: User) {
@@ -81,7 +109,7 @@ class ManageUsersViewModel(
                         draft =
                             UserDraft(
                                 name = user.name,
-                                role = user.role,
+                                roleId = user.role,
                                 enabled = user.enabled,
                                 remoteAccessible = user.remoteAccessible,
                             ),
@@ -105,6 +133,7 @@ class ManageUsersViewModel(
         val editing = _uiState.value.mode as? ManageUsersMode.Editing ?: return
         val draft = editing.draft
         val original = editing.original
+        val roleId = draft.roleId ?: return
         if (draft.name.isBlank()) return
         if (original == null && draft.password.isBlank()) return
 
@@ -112,12 +141,12 @@ class ManageUsersViewModel(
             _uiState.update { it.copy(errorMessage = null) }
             val result =
                 if (original == null) {
-                    createUser(draft.name, draft.password, draft.role, draft.enabled, draft.remoteAccessible).map { }
+                    createUser(draft.name, draft.password, roleId, draft.enabled, draft.remoteAccessible).map { }
                 } else {
                     updateUser(
                         id = original.id,
                         name = draft.name,
-                        role = draft.role,
+                        role = roleId,
                         enabled = draft.enabled,
                         remoteAccessible = draft.remoteAccessible,
                         newPassword = draft.password.ifBlank { null },

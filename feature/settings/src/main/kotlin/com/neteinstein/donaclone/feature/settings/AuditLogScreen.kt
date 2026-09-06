@@ -109,7 +109,12 @@ fun AuditLogScreen(
                         ErrorState(message = uiState.errorMessage, onRetry = onRetry)
                     uiState.entries.isEmpty() ->
                         EmptyState(message = "No audit log entries found", icon = Icons.Filled.History)
-                    else -> AuditLogList(entries = uiState.entries)
+                    else ->
+                        AuditLogList(
+                            entries = uiState.entries,
+                            userNames = uiState.userNames,
+                            objectNames = uiState.objectNames,
+                        )
                 }
             }
         }
@@ -160,7 +165,11 @@ private fun AuditLogFilters(
 }
 
 @Composable
-private fun AuditLogList(entries: List<AuditLogEntry>) {
+private fun AuditLogList(
+    entries: List<AuditLogEntry>,
+    userNames: Map<Int, String>,
+    objectNames: Map<Int, String>,
+) {
     val formatter =
         remember {
             DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withZone(ZoneOffset.systemDefault())
@@ -176,7 +185,7 @@ private fun AuditLogList(entries: List<AuditLogEntry>) {
                     Text(
                         buildString {
                             append(formatter.format(entry.date))
-                            entry.objectId?.let { append(" • Object $it") }
+                            entry.objectId?.let { append(" • ").append(objectDisplayName(it, objectNames)) }
                         },
                     )
                 },
@@ -192,7 +201,7 @@ private fun AuditLogList(entries: List<AuditLogEntry>) {
                     },
             )
             AnimatedVisibility(visible = isExpanded) {
-                AuditLogEntryDetails(entry = entry, formatter = formatter)
+                AuditLogEntryDetails(entry = entry, formatter = formatter, userNames = userNames, objectNames = objectNames)
             }
             HorizontalDivider()
         }
@@ -203,15 +212,29 @@ private fun AuditLogList(entries: List<AuditLogEntry>) {
 private fun AuditLogEntryDetails(
     entry: AuditLogEntry,
     formatter: DateTimeFormatter,
+    userNames: Map<Int, String>,
+    objectNames: Map<Int, String>,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
         DetailRow(label = "Event ID", value = entry.id.toString())
         DetailRow(label = "Type", value = entry.type?.toString() ?: "Unknown")
-        DetailRow(label = "Object ID", value = entry.objectId?.toString() ?: "—")
-        DetailRow(label = "User ID", value = entry.userId?.toString() ?: "—")
+        DetailRow(label = "Object", value = entry.objectId?.let { objectDisplayName(it, objectNames) } ?: "—")
+        DetailRow(label = "User", value = entry.userId?.let { userDisplayName(it, userNames) } ?: "—")
         DetailRow(label = "Timestamp", value = formatter.format(entry.date))
     }
 }
+
+private fun userDisplayName(
+    userId: Int,
+    userNames: Map<Int, String>,
+): String = userNames[userId] ?: "User #$userId"
+
+/** Best-effort — the hub doesn't document what `objectId` refers to, so an unmatched id is
+ * shown as-is rather than assumed to be a device/room that's simply missing. */
+private fun objectDisplayName(
+    objectId: Int,
+    objectNames: Map<Int, String>,
+): String = objectNames[objectId] ?: "Object #$objectId"
 
 @Composable
 private fun DetailRow(

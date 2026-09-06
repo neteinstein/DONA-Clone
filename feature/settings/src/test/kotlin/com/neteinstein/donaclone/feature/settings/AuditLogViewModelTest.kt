@@ -3,6 +3,9 @@ package com.neteinstein.donaclone.feature.settings
 import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.GetAuditLogUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetUsersUseCase
 import com.neteinstein.donaclone.core.model.AuditLogEntry
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -25,12 +28,20 @@ import java.time.ZoneOffset
 class AuditLogViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val getAuditLog = mockk<GetAuditLogUseCase>()
+    private val getUsers = mockk<GetUsersUseCase>()
+    private val getDevices = mockk<GetDevicesUseCase>()
+    private val getRooms = mockk<GetRoomsUseCase>()
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         coEvery { getAuditLog(objectId = null, from = null, to = null) } returns DonaResult.Success(emptyList())
+        coEvery { getUsers() } returns DonaResult.Success(emptyList())
+        coEvery { getDevices() } returns DonaResult.Success(emptyList())
+        coEvery { getRooms() } returns DonaResult.Success(emptyList())
     }
+
+    private fun viewModel() = AuditLogViewModel(getAuditLog, getUsers, getDevices, getRooms)
 
     @After
     fun tearDown() {
@@ -43,7 +54,7 @@ class AuditLogViewModelTest {
             val entries = listOf(AuditLogEntry(id = 1, objectId = 1, date = Instant.EPOCH, type = null, description = "Test", userId = null))
             coEvery { getAuditLog(objectId = null, from = null, to = null) } returns DonaResult.Success(entries)
 
-            val viewModel = AuditLogViewModel(getAuditLog)
+            val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(entries, viewModel.uiState.value.entries)
@@ -53,7 +64,7 @@ class AuditLogViewModelTest {
     @Test
     fun `an object id filter is parsed to an int and non-digits are stripped`() =
         runTest(dispatcher) {
-            val viewModel = AuditLogViewModel(getAuditLog)
+            val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.onObjectIdFilterChanged("4a2x")
@@ -73,7 +84,7 @@ class AuditLogViewModelTest {
                     to = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(),
                 )
             } returns DonaResult.Success(emptyList())
-            val viewModel = AuditLogViewModel(getAuditLog)
+            val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.onObjectIdFilterChanged("42")
@@ -95,7 +106,7 @@ class AuditLogViewModelTest {
         runTest(dispatcher) {
             coEvery { getAuditLog(objectId = null, from = null, to = null) } returns DonaResult.Error(DonaFailure.Unknown("boom"))
 
-            val viewModel = AuditLogViewModel(getAuditLog)
+            val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals("boom", viewModel.uiState.value.errorMessage)

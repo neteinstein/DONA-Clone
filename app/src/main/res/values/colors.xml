@@ -6,5 +6,5 @@
 
     <!-- DONA brand green, used for the app launcher icon -->
     <color name="dona_green">#00A651</color>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="ic_launcher_background">#00A651</color>
 </resources>

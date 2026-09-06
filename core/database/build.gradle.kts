@@ -33,6 +33,14 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// room.schemaLocation isn't build-type-scoped, so kspDebugKotlin and kspReleaseKotlin both write
+// the same schemas/ path. Run in parallel, one can read the other's half-written file and blow up
+// with "Empty schema file" (seen intermittently in CI's Code coverage job). Serializing them avoids
+// the race without changing the exported schema's location.
+tasks.named("kspReleaseKotlin") {
+    mustRunAfter(tasks.named("kspDebugKotlin"))
+}
+
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))

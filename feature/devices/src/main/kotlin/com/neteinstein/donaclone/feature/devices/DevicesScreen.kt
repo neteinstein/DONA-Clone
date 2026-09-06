@@ -1,7 +1,11 @@
 package com.neteinstein.donaclone.feature.devices
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
@@ -69,6 +73,11 @@ fun DevicesScreen(
     onMoveRoom: (roomKey: Int, targetRoomKey: Int) -> Unit,
 ) {
     Scaffold(
+        // MainScreen's own Scaffold + bottom nav bar already reserves space for the system
+        // navigation bar below this tab — without excluding it here too, this Scaffold (which has
+        // no bottomBar of its own) reserves that same inset a second time, leaving a large empty
+        // gap between the end of the device grid and the actual bottom nav bar.
+        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
         topBar = {
             TopAppBar(
                 title = {

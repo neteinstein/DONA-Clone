@@ -3,12 +3,14 @@ package com.neteinstein.donaclone.feature.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.AbortLoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.model.House
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,11 +34,17 @@ class LoginViewModel(
     private val observeHouses: ObserveHousesUseCase,
     private val getActiveHouse: GetActiveHouseUseCase,
     private val login: LoginUseCase,
+    private val abortLogin: AbortLoginUseCase,
     observeBiometricEnabled: ObserveBiometricEnabledUseCase,
     private val setBiometricEnabled: SetBiometricEnabledUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    /** Held so [cancelLogin] can tear down an attempt that's still waiting on the socket — a login
+     * can otherwise sit there for the better part of a minute (connect + request timeouts, tried
+     * once per address). */
+    private var loginJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -83,23 +91,35 @@ class LoginViewModel(
         val house = _uiState.value.selectedHouse ?: return
         val credentials = house.copy(username = _uiState.value.username, password = _uiState.value.password)
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val result = login.invoke(credentials)) {
-                is DonaResult.Success ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            loginSucceeded = true,
-                            showBiometricOptInPrompt = !it.biometricEnabled,
-                        )
-                    }
-                is DonaResult.Error ->
-                    _uiState.update {
-                        it.copy(isLoading = false, errorMessage = result.failure.message ?: "Could not log in")
-                    }
+        loginJob?.cancel()
+        loginJob =
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                when (val result = login.invoke(credentials)) {
+                    is DonaResult.Success ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                loginSucceeded = true,
+                                showBiometricOptInPrompt = !it.biometricEnabled,
+                            )
+                        }
+                    is DonaResult.Error ->
+                        _uiState.update {
+                            it.copy(isLoading = false, errorMessage = result.failure.message ?: "Could not log in")
+                        }
+                }
             }
-        }
+    }
+
+    /** Back (or the overlay's Cancel) while a login is in flight: stop waiting, drop the half-open
+     * socket, and return the form to its idle state. [errorMessage] is deliberately left null so
+     * [retryLoginIfNeeded] doesn't immediately re-fire the attempt the user just abandoned. */
+    fun cancelLogin() {
+        loginJob?.cancel()
+        loginJob = null
+        viewModelScope.launch { abortLogin() }
+        _uiState.update { it.copy(isLoading = false, loginSucceeded = false, errorMessage = null) }
     }
 
     fun consumeLoginSucceeded() {

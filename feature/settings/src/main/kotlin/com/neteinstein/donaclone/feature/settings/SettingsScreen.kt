@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Blinds
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
@@ -44,6 +45,7 @@ fun SettingsRoute(
     onManageHouses: () -> Unit,
     onOpenAuditLog: () -> Unit,
     onManageUsers: () -> Unit,
+    onOpenShutterFixer: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
@@ -63,6 +65,7 @@ fun SettingsRoute(
         onManageHouses = onManageHouses,
         onOpenAuditLog = onOpenAuditLog,
         onManageUsers = onManageUsers,
+        onOpenShutterFixer = onOpenShutterFixer,
         onLogout = viewModel::logout,
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onBiometricEnabledChanged = viewModel::onBiometricEnabledChanged,
@@ -80,6 +83,7 @@ fun SettingsScreen(
     onManageHouses: () -> Unit,
     onOpenAuditLog: () -> Unit,
     onManageUsers: () -> Unit,
+    onOpenShutterFixer: () -> Unit,
     onLogout: () -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onBiometricEnabledChanged: (Boolean) -> Unit,
@@ -169,6 +173,13 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Filled.People, contentDescription = null) },
                 trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
                 modifier = Modifier.clickable(onClick = onManageUsers),
+            )
+            ListItem(
+                headlineContent = { Text("Shutter Fixer") },
+                supportingContent = { Text("Mirror shutters whose open/close and position are wired backwards") },
+                leadingContent = { Icon(Icons.Filled.Blinds, contentDescription = null) },
+                trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
+                modifier = Modifier.clickable(onClick = onOpenShutterFixer),
             )
 
             SectionHeader("Updates")

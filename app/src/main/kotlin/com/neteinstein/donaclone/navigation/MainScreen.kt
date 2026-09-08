@@ -70,6 +70,7 @@ fun MainScreen(
     onOpenHouses: () -> Unit,
     onOpenAuditLog: () -> Unit,
     onOpenManageUsers: () -> Unit,
+    onOpenShutterFixer: () -> Unit,
     onLoggedOut: () -> Unit,
     onCreateAutomation: () -> Unit,
     onOpenAutomationDetail: (Int) -> Unit,
@@ -119,6 +120,7 @@ fun MainScreen(
                     onManageHouses = onOpenHouses,
                     onOpenAuditLog = onOpenAuditLog,
                     onManageUsers = onOpenManageUsers,
+                    onOpenShutterFixer = onOpenShutterFixer,
                     onLoggedOut = onLoggedOut,
                 )
             }

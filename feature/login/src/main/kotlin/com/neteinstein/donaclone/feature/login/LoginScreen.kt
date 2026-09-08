@@ -2,12 +2,14 @@
 
 package com.neteinstein.donaclone.feature.login
 
+import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,6 +64,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.neteinstein.donaclone.core.designsystem.component.DonaConnectingIndicator
 import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.model.House
 import kotlinx.coroutines.delay
@@ -81,6 +84,10 @@ fun LoginRoute(
             BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
                 BiometricManager.BIOMETRIC_SUCCESS
         }
+
+    // A login can sit on the socket for the better part of a minute; back is the escape hatch
+    // (the connecting overlay's Cancel button is the visible twin of this gesture).
+    BackHandler(enabled = uiState.isLoading) { viewModel.cancelLogin() }
 
     LaunchedEffect(uiState.loginSucceeded, uiState.showBiometricOptInPrompt) {
         if (uiState.loginSucceeded && !uiState.showBiometricOptInPrompt) {
@@ -110,6 +117,7 @@ fun LoginRoute(
         onEditCredentials = { uiState.selectedHouse?.let(onEditHouse) },
         onLoginClick = viewModel::login,
         onManageHouses = onManageHouses,
+        onCancelLogin = viewModel::cancelLogin,
     )
 
     if (uiState.showBiometricOptInPrompt) {
@@ -140,7 +148,13 @@ fun LoginScreen(
     onEditCredentials: () -> Unit,
     onLoginClick: () -> Unit,
     onManageHouses: () -> Unit,
+    onCancelLogin: () -> Unit = {},
 ) {
+    if (uiState.isLoading) {
+        ConnectingOverlay(houseName = uiState.selectedHouse?.name, onCancel = onCancelLogin)
+        return
+    }
+
     if (uiState.houses.isEmpty()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             EmptyState(
@@ -237,6 +251,33 @@ fun LoginScreen(
                     .padding(8.dp),
         ) {
             Icon(Icons.Filled.Home, contentDescription = "Manage houses")
+        }
+    }
+}
+
+/** Shown instead of the form while a login is in flight: the app icon animating as it reaches for
+ * the hub, plus the only visible way to abort (back does the same thing — see [LoginRoute]). */
+@Composable
+private fun ConnectingOverlay(
+    houseName: String?,
+    onCancel: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            DonaConnectingIndicator(
+                message = if (houseName.isNullOrBlank()) "Connecting to your home…" else "Connecting to $houseName…",
+            )
+            TextButton(onClick = onCancel) {
+                Text("Cancel")
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.neteinstein.donaclone.core.domain.di
 
+import com.neteinstein.donaclone.core.domain.usecase.AbortLoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.CanInstallUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.CheckForUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ClearDownloadedUpdateUseCase
@@ -27,6 +28,7 @@ import com.neteinstein.donaclone.core.domain.usecase.ObserveDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDeviceUpdatesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveDpuUnreachableUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.ObserveInvertedShuttersUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveRoomsExpandedByDefaultUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveSessionStateUseCase
@@ -43,6 +45,7 @@ import com.neteinstein.donaclone.core.domain.usecase.SetBiometricEnabledUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetDebugModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomOrderUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetRoomsExpandedByDefaultUseCase
+import com.neteinstein.donaclone.core.domain.usecase.SetShutterInvertedUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.TriggerAmbienceUseCase
 import com.neteinstein.donaclone.core.domain.usecase.UpdateUserUseCase
@@ -60,6 +63,7 @@ val useCaseModule =
 
         factoryOf(::LoginUseCase)
         factoryOf(::LogoutUseCase)
+        factoryOf(::AbortLoginUseCase)
         factoryOf(::ObserveSessionStateUseCase)
         factoryOf(::GetCurrentSessionUseCase)
         factoryOf(::RetryConnectionUseCase)
@@ -96,6 +100,8 @@ val useCaseModule =
         factoryOf(::SetDebugModeUseCase)
         factoryOf(::ObserveActionConfirmationEnabledUseCase)
         factoryOf(::SetActionConfirmationEnabledUseCase)
+        factoryOf(::ObserveInvertedShuttersUseCase)
+        factoryOf(::SetShutterInvertedUseCase)
 
         factoryOf(::CheckForUpdateUseCase)
         factoryOf(::DownloadUpdateUseCase)

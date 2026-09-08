@@ -12,6 +12,7 @@ import com.neteinstein.donaclone.core.data.house.DiscoveryRepositoryImpl
 import com.neteinstein.donaclone.core.data.house.HouseRepositoryImpl
 import com.neteinstein.donaclone.core.data.mapper.HouseMapper
 import com.neteinstein.donaclone.core.data.roomsdisplay.RoomsDisplayRepositoryImpl
+import com.neteinstein.donaclone.core.data.shutterinversion.ShutterInversionRepositoryImpl
 import com.neteinstein.donaclone.core.data.theme.ThemeRepositoryImpl
 import com.neteinstein.donaclone.core.data.update.UpdateInstallerImpl
 import com.neteinstein.donaclone.core.data.update.UpdateRepositoryImpl
@@ -29,6 +30,7 @@ import com.neteinstein.donaclone.core.domain.repository.DiscoveryRepository
 import com.neteinstein.donaclone.core.domain.repository.HouseRepository
 import com.neteinstein.donaclone.core.domain.repository.RoleRepository
 import com.neteinstein.donaclone.core.domain.repository.RoomsDisplayRepository
+import com.neteinstein.donaclone.core.domain.repository.ShutterInversionRepository
 import com.neteinstein.donaclone.core.domain.repository.ThemeRepository
 import com.neteinstein.donaclone.core.domain.repository.UpdateInstaller
 import com.neteinstein.donaclone.core.domain.repository.UpdateRepository
@@ -54,8 +56,8 @@ val dataModule =
                 applicationScope = get(named("applicationScope")),
             )
         }
-        single<DeviceRepository> { DeviceRepositoryImpl(api = get()) }
-        single<AmbienceRepository> { AmbienceRepositoryImpl(api = get()) }
+        single<DeviceRepository> { DeviceRepositoryImpl(api = get(), shutterInversion = get()) }
+        single<AmbienceRepository> { AmbienceRepositoryImpl(api = get(), shutterInversion = get()) }
         single<AuditLogRepository> { AuditLogRepositoryImpl(api = get()) }
         single<UserRepository> { UserRepositoryImpl(api = get()) }
         single<RoleRepository> { RoleRepositoryImpl(api = get()) }
@@ -66,6 +68,9 @@ val dataModule =
             ActionConfirmationRepositoryImpl(actionConfirmationPreferences = get())
         }
         single<RoomsDisplayRepository> { RoomsDisplayRepositoryImpl(roomsDisplayPreferences = get()) }
+        single<ShutterInversionRepository> {
+            ShutterInversionRepositoryImpl(preferences = get(), houseRepository = get())
+        }
         single<ConnectivityRepository> { ConnectivityRepositoryImpl(observer = get()) }
         single<UpdateRepository> {
             UpdateRepositoryImpl(

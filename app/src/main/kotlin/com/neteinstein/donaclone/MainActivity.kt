@@ -1,6 +1,7 @@
 package com.neteinstein.donaclone
 
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -19,11 +20,15 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -33,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.neteinstein.donaclone.core.designsystem.theme.DonaTheme
 import com.neteinstein.donaclone.core.model.ThemeMode
+import com.neteinstein.donaclone.feature.houses.HousesRoute
 import com.neteinstein.donaclone.feature.login.BiometricLockRoute
 import com.neteinstein.donaclone.navigation.DonaNavHost
 import kotlinx.coroutines.flow.first
@@ -123,10 +129,7 @@ class MainActivity : FragmentActivity() {
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             if (uiState.isLocked) {
-                                BiometricLockRoute(
-                                    onUnlocked = viewModel::onUnlocked,
-                                    onManageHouses = {},
-                                )
+                                LockedContent(onUnlocked = viewModel::onUnlocked)
                             } else {
                                 DonaNavHost()
                             }
@@ -136,4 +139,39 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+}
+
+/**
+ * What the app shows while the biometric lock is up. [DonaNavHost] isn't mounted yet at this point,
+ * so the lock screen's fallback login form has no navigation of its own — without this, its
+ * "manage houses" button and its tap-to-edit credential fields (the only place credentials *can* be
+ * edited) would be dead ends. One flag is enough: the Houses screen is the sole destination
+ * reachable from here.
+ */
+@Composable
+private fun LockedContent(onUnlocked: () -> Unit) {
+    var editHouseName by rememberSaveable { mutableStateOf<String?>(null) }
+    var showHouses by rememberSaveable { mutableStateOf(false) }
+
+    if (showHouses) {
+        // No NavHost here to pop, so back has to be handled by hand or it would leave the app.
+        BackHandler { showHouses = false }
+        HousesRoute(
+            onDone = { showHouses = false },
+            editHouseName = editHouseName,
+        )
+        return
+    }
+
+    BiometricLockRoute(
+        onUnlocked = onUnlocked,
+        onManageHouses = {
+            editHouseName = null
+            showHouses = true
+        },
+        onEditHouse = { house ->
+            editHouseName = house.name
+            showHouses = true
+        },
+    )
 }

@@ -1,5 +1,6 @@
 package com.neteinstein.donaclone.feature.login
 
+import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +24,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.neteinstein.donaclone.core.designsystem.component.DonaConnectingIndicator
+import com.neteinstein.donaclone.core.model.House
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -36,6 +38,7 @@ import org.koin.androidx.compose.koinViewModel
 fun BiometricLockRoute(
     onUnlocked: () -> Unit,
     onManageHouses: () -> Unit,
+    onEditHouse: (House) -> Unit,
     viewModel: BiometricLockViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -46,15 +49,18 @@ fun BiometricLockRoute(
     }
 
     if (uiState.useFallback || activity == null) {
-        // Credentials are edited on the Houses screen, so tapping a login field goes wherever
-        // this surface's "manage houses" goes — the lock screen has no navigation of its own.
         LoginRoute(
             onLoggedIn = onUnlocked,
             onManageHouses = onManageHouses,
-            onEditHouse = { onManageHouses() },
+            onEditHouse = onEditHouse,
         )
         return
     }
+
+    // Back while the fingerprint prompt (or the silent re-login behind it) is up drops to the
+    // manual form instead of leaving the app — the same "abort and show me the login" gesture the
+    // form itself honours.
+    BackHandler { viewModel.useFallbackLogin() }
 
     LaunchedEffect(Unit) {
         val canAuthenticate =
@@ -76,7 +82,7 @@ fun BiometricLockRoute(
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
     ) {
         if (uiState.isAuthenticating) {
-            CircularProgressIndicator()
+            DonaConnectingIndicator(message = "Connecting to your home…")
         } else {
             Icon(
                 imageVector = Icons.Filled.Fingerprint,

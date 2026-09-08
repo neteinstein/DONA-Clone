@@ -3,8 +3,10 @@ package com.neteinstein.donaclone.feature.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.AbortLoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,29 +30,39 @@ data class BiometricLockUiState(
 class BiometricLockViewModel(
     private val getActiveHouse: GetActiveHouseUseCase,
     private val login: LoginUseCase,
+    private val abortLogin: AbortLoginUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BiometricLockUiState())
     val uiState: StateFlow<BiometricLockUiState> = _uiState.asStateFlow()
 
+    private var loginJob: Job? = null
+
     fun onBiometricSucceeded() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAuthenticating = true, errorMessage = null) }
-            val house = getActiveHouse()
-            if (house == null) {
-                _uiState.update { it.copy(isAuthenticating = false, useFallback = true) }
-                return@launch
+        loginJob?.cancel()
+        loginJob =
+            viewModelScope.launch {
+                _uiState.update { it.copy(isAuthenticating = true, errorMessage = null) }
+                val house = getActiveHouse()
+                if (house == null) {
+                    _uiState.update { it.copy(isAuthenticating = false, useFallback = true) }
+                    return@launch
+                }
+                when (val result = login(house)) {
+                    is DonaResult.Success -> _uiState.update { it.copy(isAuthenticating = false, unlocked = true) }
+                    is DonaResult.Error ->
+                        _uiState.update {
+                            it.copy(isAuthenticating = false, errorMessage = result.failure.message, useFallback = true)
+                        }
+                }
             }
-            when (val result = login(house)) {
-                is DonaResult.Success -> _uiState.update { it.copy(isAuthenticating = false, unlocked = true) }
-                is DonaResult.Error ->
-                    _uiState.update {
-                        it.copy(isAuthenticating = false, errorMessage = result.failure.message, useFallback = true)
-                    }
-            }
-        }
     }
 
+    /** Also the "back out of the fingerprint prompt" path, so a silent re-login that's still
+     * waiting on the socket is dropped rather than left running behind the manual form. */
     fun useFallbackLogin() {
-        _uiState.update { it.copy(useFallback = true) }
+        loginJob?.cancel()
+        loginJob = null
+        viewModelScope.launch { abortLogin() }
+        _uiState.update { it.copy(isAuthenticating = false, useFallback = true) }
     }
 }

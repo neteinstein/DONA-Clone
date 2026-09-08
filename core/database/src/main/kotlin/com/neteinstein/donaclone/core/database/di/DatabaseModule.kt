@@ -9,6 +9,7 @@ import com.neteinstein.donaclone.core.database.prefs.BiometricPreferences
 import com.neteinstein.donaclone.core.database.prefs.DebugPreferences
 import com.neteinstein.donaclone.core.database.prefs.RoomsDisplayPreferences
 import com.neteinstein.donaclone.core.database.prefs.SessionPreferences
+import com.neteinstein.donaclone.core.database.prefs.ShutterInversionPreferences
 import com.neteinstein.donaclone.core.database.prefs.ThemePreferences
 import com.neteinstein.donaclone.core.database.security.CredentialCipher
 import org.koin.android.ext.koin.androidContext
@@ -31,5 +32,6 @@ val databaseModule =
         single { DebugPreferences(androidContext().sessionDataStore) }
         single { ActionConfirmationPreferences(androidContext().sessionDataStore) }
         single { RoomsDisplayPreferences(androidContext().sessionDataStore) }
+        single { ShutterInversionPreferences(androidContext().sessionDataStore) }
         single { CredentialCipher() }
     }

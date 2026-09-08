@@ -23,6 +23,10 @@ interface AuthRepository {
 
     suspend fun logout()
 
+    /** Tears down a login attempt that is still in flight, without touching the stored "last used
+     * house" pointer the way [logout] does — the user is cancelling a connection, not signing out. */
+    suspend fun abortLogin()
+
     /** One manual, uncounted reconnect attempt for whatever house is currently active — used by
      * the connectivity banner's "Retry" action. Does not affect the automatic session-recovery
      * retry budget (see the `AuthRepositoryImpl` implementation). */

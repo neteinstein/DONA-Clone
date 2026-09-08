@@ -4,12 +4,18 @@ import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.data.mapper.donaResultCatching
 import com.neteinstein.donaclone.core.domain.repository.DeviceRepository
+import com.neteinstein.donaclone.core.domain.repository.ShutterInversionRepository
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.DeviceCommand
 import com.neteinstein.donaclone.core.model.DeviceUpdate
 import com.neteinstein.donaclone.core.model.Division
+import com.neteinstein.donaclone.core.model.invertShutterPercentage
 import com.neteinstein.donaclone.core.network.api.DomotalkApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -22,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class DeviceRepositoryImpl(
     private val api: DomotalkApi,
+    private val shutterInversion: ShutterInversionRepository,
 ) : DeviceRepository {
     private val rawDeviceCache = ConcurrentHashMap<Int, JsonObject>()
 
@@ -32,9 +39,10 @@ class DeviceRepositoryImpl(
 
     override suspend fun getOutputDevices(): DonaResult<List<Device>> =
         donaResultCatching {
+            val inverted = invertedShutterIds()
             api.readDeviceOut().map { snapshot ->
                 rawDeviceCache[snapshot.device.id] = snapshot.raw
-                snapshot.device
+                snapshot.device.correctedForInversion(inverted)
             }
         }
 
@@ -48,6 +56,7 @@ class DeviceRepositoryImpl(
 
     override suspend fun sendCommand(command: DeviceCommand): DonaResult<Unit> {
         val deviceId = command.deviceId()
+        val inverted = deviceId in invertedShutterIds()
         val raw =
             rawDeviceCache[deviceId]
                 ?: return DonaResult.Error(
@@ -58,15 +67,43 @@ class DeviceRepositoryImpl(
             when (command) {
                 is DeviceCommand.SetBinaryOutput -> api.sendBinaryOutputAction(raw, command.turnOn)
                 is DeviceCommand.FirePulse -> api.sendPulseAction(raw)
-                is DeviceCommand.SetShutterOpen -> api.sendShutterOpenClose(raw, open = true)
-                is DeviceCommand.SetShutterClosed -> api.sendShutterOpenClose(raw, open = false)
-                is DeviceCommand.SetShutterPercentage -> api.sendShutterPercentage(raw, command.percentage)
+                is DeviceCommand.SetShutterOpen -> api.sendShutterOpenClose(raw, open = !inverted)
+                is DeviceCommand.SetShutterClosed -> api.sendShutterOpenClose(raw, open = inverted)
+                is DeviceCommand.SetShutterPercentage ->
+                    api.sendShutterPercentage(
+                        raw,
+                        if (inverted) invertShutterPercentage(command.percentage) else command.percentage,
+                    )
                 is DeviceCommand.SetDimmerPercentage -> api.sendDimmerPercentage(raw, command.percentage)
             }
         }
     }
 
-    override fun observeDeviceUpdates(): Flow<DeviceUpdate> = api.observeUpdates().mapNotNull { parseUpdate(it) }
+    /** Re-subscribes whenever the inverted set changes so every emission is corrected against the
+     * current configuration; `combine` would instead replay the last update on each config change. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeDeviceUpdates(): Flow<DeviceUpdate> =
+        shutterInversion.observeInvertedShutterIds().flatMapLatest { inverted ->
+            api
+                .observeUpdates()
+                .mapNotNull { parseUpdate(it) }
+                .map { update -> update.correctedForInversion(inverted) }
+        }
+
+    private suspend fun invertedShutterIds(): Set<Int> = shutterInversion.observeInvertedShutterIds().first()
+
+    /** Mirrors a physically inverted shutter's reported position. Only shutters can appear in
+     * [inverted], so the id test alone is enough to leave dimmers (which share
+     * [DeviceUpdate.Percentage]) untouched. */
+    private fun Device.correctedForInversion(inverted: Set<Int>): Device =
+        if (this is Device.Shutter && id in inverted) copy(percentage = invertShutterPercentage(percentage)) else this
+
+    private fun DeviceUpdate.correctedForInversion(inverted: Set<Int>): DeviceUpdate =
+        if (this is DeviceUpdate.Percentage && deviceId in inverted) {
+            copy(percentage = invertShutterPercentage(percentage))
+        } else {
+            this
+        }
 
     /** Best-effort parse of the unconfirmed push envelope described in protocol notes §8. */
     private fun parseUpdate(message: JsonObject): DeviceUpdate? {

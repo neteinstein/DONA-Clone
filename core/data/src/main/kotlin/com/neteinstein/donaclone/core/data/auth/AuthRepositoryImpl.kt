@@ -140,6 +140,15 @@ class AuthRepositoryImpl(
         loggingOut = false
     }
 
+    /** Cancelling an in-flight login: drop whatever half-open socket [attemptLogin] left behind and
+     * settle the session state back to disconnected. `currentSession` is still null at this point,
+     * so [handleUnsolicitedDisconnect]'s recovery loop can't be triggered by this. Deliberately
+     * does *not* clear the active-house pointer the way [logout] does. */
+    override suspend fun abortLogin() {
+        socket.disconnect()
+        _sessionState.value = SessionStatus.DISCONNECTED
+    }
+
     /** One manual, uncounted recovery attempt for the last active house — used by the
      * connectivity banner's "Retry" action. Never counts against or resets the automatic
      * [handleUnsolicitedDisconnect] retry budget. */

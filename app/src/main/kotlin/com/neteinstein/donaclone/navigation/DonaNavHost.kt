@@ -26,6 +26,7 @@ import com.neteinstein.donaclone.feature.houses.HousesRoute
 import com.neteinstein.donaclone.feature.login.LoginRoute
 import com.neteinstein.donaclone.feature.settings.AuditLogRoute
 import com.neteinstein.donaclone.feature.settings.ManageUsersRoute
+import com.neteinstein.donaclone.feature.settings.ShutterFixerRoute
 import org.koin.compose.koinInject
 
 object DonaDestinations {
@@ -40,6 +41,7 @@ object DonaDestinations {
     const val AUTOMATION_DETAIL = "automation_detail/{$AUTOMATION_DETAIL_ARG}"
     const val AUDIT_LOG = "audit_log"
     const val MANAGE_USERS = "manage_users"
+    const val SHUTTER_FIXER = "shutter_fixer"
 
     /** The Houses screen, optionally opening straight into [houseName]'s editor. */
     fun housesRoute(houseName: String? = null) =
@@ -65,7 +67,8 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
             backStackEntry?.destination?.route?.let { route ->
                 route == DonaDestinations.MAIN || route == DonaDestinations.DEVICE_DETAIL ||
                     route == DonaDestinations.AUTOMATION_EDITOR || route == DonaDestinations.AUTOMATION_DETAIL ||
-                    route == DonaDestinations.AUDIT_LOG || route == DonaDestinations.MANAGE_USERS
+                    route == DonaDestinations.AUDIT_LOG || route == DonaDestinations.MANAGE_USERS ||
+                    route == DonaDestinations.SHUTTER_FIXER
             } == true
         if (sessionState == SessionStatus.DISCONNECTED && onAuthenticatedRoute) {
             navigateToLogin(navController)
@@ -125,6 +128,7 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
                 onOpenHouses = { navController.navigate(DonaDestinations.housesRoute()) },
                 onOpenAuditLog = { navController.navigate(DonaDestinations.AUDIT_LOG) },
                 onOpenManageUsers = { navController.navigate(DonaDestinations.MANAGE_USERS) },
+                onOpenShutterFixer = { navController.navigate(DonaDestinations.SHUTTER_FIXER) },
                 onLoggedOut = { navigateToLogin(navController) },
                 onCreateAutomation = { navController.navigate(DonaDestinations.AUTOMATION_EDITOR) },
                 onOpenAutomationDetail = { ambienceId ->
@@ -139,6 +143,10 @@ fun DonaNavHost(navController: NavHostController = rememberNavController()) {
 
         composable(DonaDestinations.MANAGE_USERS) {
             ManageUsersRoute(onBack = { navController.popBackStack() })
+        }
+
+        composable(DonaDestinations.SHUTTER_FIXER) {
+            ShutterFixerRoute(onBack = { navController.popBackStack() })
         }
 
         composable(

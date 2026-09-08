@@ -32,6 +32,13 @@ class LogoutUseCase(
     }
 }
 
+/** Cancels an in-flight login (back pressed on the login screen) and drops the half-open socket. */
+class AbortLoginUseCase(
+    private val authRepository: AuthRepository,
+) {
+    suspend operator fun invoke() = authRepository.abortLogin()
+}
+
 class ObserveSessionStateUseCase(
     private val repository: AuthRepository,
 ) {

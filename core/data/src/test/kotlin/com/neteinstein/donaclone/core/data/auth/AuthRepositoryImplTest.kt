@@ -186,4 +186,15 @@ class AuthRepositoryImplTest {
             // against a genuine (non-Unreachable) auth failure, gives up.
             assertEquals(SessionStatus.DISCONNECTED, repository.sessionState.value)
         }
+
+    @Test
+    fun `aborting a login drops the socket and settles the session as disconnected`() =
+        runTest {
+            val repository = repository()
+
+            repository.abortLogin()
+
+            coVerify { socket.disconnect() }
+            assertEquals(SessionStatus.DISCONNECTED, repository.sessionState.value)
+        }
 }

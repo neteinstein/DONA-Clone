@@ -3,6 +3,7 @@ package com.neteinstein.donaclone.feature.login
 import app.cash.turbine.test
 import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
+import com.neteinstein.donaclone.core.domain.usecase.AbortLoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.LoginUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveBiometricEnabledUseCase
@@ -18,6 +19,7 @@ import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -44,6 +46,7 @@ class LoginViewModelTest {
     private val observeHouses = mockk<ObserveHousesUseCase>()
     private val getActiveHouse = mockk<GetActiveHouseUseCase>()
     private val login = mockk<LoginUseCase>()
+    private val abortLogin = mockk<AbortLoginUseCase>(relaxed = true)
     private val observeBiometricEnabled = mockk<ObserveBiometricEnabledUseCase>()
     private val setBiometricEnabled = mockk<SetBiometricEnabledUseCase>()
 
@@ -61,7 +64,14 @@ class LoginViewModelTest {
         coEvery { observeHouses() } returns houses
         coEvery { getActiveHouse() } returns null
         every { observeBiometricEnabled() } returns flowOf(biometricEnabled)
-        return LoginViewModel(observeHouses, getActiveHouse, login, observeBiometricEnabled, setBiometricEnabled)
+        return LoginViewModel(
+            observeHouses,
+            getActiveHouse,
+            login,
+            abortLogin,
+            observeBiometricEnabled,
+            setBiometricEnabled,
+        )
     }
 
     @Test
@@ -252,5 +262,29 @@ class LoginViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `cancelling an in-flight login clears the loading state and aborts the attempt`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            // Never completes, standing in for a login still waiting on the socket.
+            coEvery { login.invoke(any()) } coAnswers { awaitCancellation() }
+
+            viewModel.uiState.test {
+                expectMostRecentItem()
+                viewModel.login()
+                assertTrue(awaitItem().isLoading)
+
+                viewModel.cancelLogin()
+                dispatcher.scheduler.advanceUntilIdle()
+
+                val cancelled = awaitItem()
+                assertFalse(cancelled.isLoading)
+                // Left null on purpose: an error would make retryLoginIfNeeded re-fire on resume.
+                assertNull(cancelled.errorMessage)
+            }
+            coVerify { abortLogin() }
         }
 }

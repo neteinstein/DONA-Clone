@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.DeleteAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetAutomationDetailUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase
@@ -30,6 +31,11 @@ data class AutomationEditorUiState(
     val devices: List<Device> = emptyList(),
     val entriesBySection: Map<AutomationSection, List<AutomationEntryDraft>> =
         AutomationSection.entries.associateWith { emptyList() },
+    /** Hub ids of entries that were read back off this scenario and have since been removed by the
+     * user — [toAutomationDraft] turns these into the `delete trigger`/`condition`/`action` calls
+     * [SaveAutomationUseCase] issues before it creates anything new. */
+    val removedHubIdsBySection: Map<AutomationSection, List<Int>> =
+        AutomationSection.entries.associateWith { emptyList() },
     /** The section whose "Configure ..." sub-screen is currently shown, or null for the main
      * editor. Only one editing surface is ever open at once. */
     val editingSection: AutomationSection? = null,
@@ -40,13 +46,13 @@ data class AutomationEditorUiState(
      * after the user dismisses that message rather than leaving them on stale state. */
     val closeAfterMessage: Boolean = false,
 ) {
-    /** A new scenario needs at least one trigger before it makes sense on the hub. An existing one
-     * being edited already has a trigger there (even though this app has no confirmed way to read
-     * it back, see [AutomationEditorViewModel]'s class doc), so editing only requires a name. */
+    /** A scenario needs a name and at least one trigger before it makes sense on the hub. An
+     * existing one being edited has its triggers read back off the hub by [refresh], so the same
+     * rule applies either way. */
     val canSave: Boolean
         get() =
             !isSaving && !isDeleting &&
-                name.isNotBlank() && (isEditing || entriesBySection[AutomationSection.TRIGGERS]?.isNotEmpty() == true)
+                name.isNotBlank() && entriesBySection[AutomationSection.TRIGGERS]?.isNotEmpty() == true
 
     val canDelete: Boolean
         get() = isEditing && !isSaving && !isDeleting
@@ -56,24 +62,18 @@ data class AutomationEditorUiState(
  * Backs both the "create a new automation" and "view/edit an existing automation" screens
  * ([AutomationEditorScreen]) — the latter is reached by long-pressing a scene on [AmbiencesScreen].
  * When [ambienceId] is non-null, [refresh] looks the scene up (there is no single-scene hub
- * endpoint) and seeds the name/enabled fields from it; the hub only exposes those two fields per
- * [com.neteinstein.donaclone.core.model.Ambience], so that's all there is to seed. The rest of the
- * draft is built entirely client-side from real rooms/devices and mapped onto the hub's confirmed
- * trigger/condition/action wire schema by [save] (`docs/PROTOCOL.md` §11.6).
- *
- * **Editing limitation, by protocol design, not by choice:** saving an edit can rename the
- * scenario, toggle it, and *add* new triggers/conditions/actions — it cannot show, change, or
- * remove the automation's pre-existing ones. §11.4 marks the `ambienceStartTrigger`/
- * `ambienceStopTrigger`/`ambienceCondition` join subjects "create only" (no confirmed `read`), and
- * [com.neteinstein.donaclone.core.model.Ambience] doesn't carry `firstAction` either, so this app
- * has no confirmed way to discover which trigger/condition/action ids already belong to an
- * ambience being edited.
+ * endpoint), seeds the name/enabled fields from it, and reads its triggers/conditions/actions back
+ * via [getAutomationDetail] so the four sections show what the scenario is actually made of. New
+ * entries the user adds are mapped onto the hub's trigger/condition/action wire schema by [save]
+ * (`docs/PROTOCOL.md` §11.6); entries that came from the hub keep their id and are left untouched
+ * unless removed, in which case [save] deletes them.
  */
 class AutomationEditorViewModel(
     private val ambienceId: Int?,
     private val getRooms: GetRoomsUseCase,
     private val getDevices: GetDevicesUseCase,
     private val getAmbiences: GetAmbiencesUseCase,
+    private val getAutomationDetail: GetAutomationDetailUseCase,
     private val saveAutomation: SaveAutomationUseCase,
     private val deleteAutomation: DeleteAutomationUseCase,
 ) : ViewModel() {
@@ -93,17 +93,30 @@ class AutomationEditorViewModel(
             val devicesResult = getDevices()
             val ambiencesResult = if (ambienceId != null) getAmbiences() else null
             val ambience = (ambiencesResult as? DonaResult.Success)?.data?.firstOrNull { it.id == ambienceId }
+            val devices = (devicesResult as? DonaResult.Success)?.data.orEmpty()
+            // Only worth reading the sub-objects once the devices they point at are in hand —
+            // without them every chip would render as "No device selected".
+            val detailResult = if (ambienceId != null && devicesResult is DonaResult.Success) getAutomationDetail(ambienceId) else null
+            val entries = (detailResult as? DonaResult.Success)?.data?.toEntriesBySection(devices) { nextEntryId++ }
             _uiState.update { state ->
                 val failure =
                     (roomsResult as? DonaResult.Error)?.failure
                         ?: (devicesResult as? DonaResult.Error)?.failure
                         ?: (ambiencesResult as? DonaResult.Error)?.failure
+                        ?: (detailResult as? DonaResult.Error)?.failure
                 state.copy(
                     isLoading = false,
                     rooms = (roomsResult as? DonaResult.Success)?.data ?: state.rooms,
                     devices = (devicesResult as? DonaResult.Success)?.data ?: state.devices,
                     name = ambience?.name ?: state.name,
                     enabled = ambience?.enabled ?: state.enabled,
+                    entriesBySection = entries ?: state.entriesBySection,
+                    removedHubIdsBySection =
+                        if (entries != null) {
+                            AutomationSection.entries.associateWith { emptyList() }
+                        } else {
+                            state.removedHubIdsBySection
+                        },
                     errorMessage = failure?.message,
                 )
             }
@@ -147,7 +160,13 @@ class AutomationEditorViewModel(
                 } else {
                     current.filterNot { it.id == entryId }
                 }
-            state.copy(entriesBySection = state.entriesBySection + (section to updated))
+            val droppedHubIds = (current - updated.toSet()).mapNotNull { it.hubId }
+            state.copy(
+                entriesBySection = state.entriesBySection + (section to updated),
+                removedHubIdsBySection =
+                    state.removedHubIdsBySection +
+                        (section to state.removedHubIdsBySection[section].orEmpty() + droppedHubIds),
+            )
         }
     }
 

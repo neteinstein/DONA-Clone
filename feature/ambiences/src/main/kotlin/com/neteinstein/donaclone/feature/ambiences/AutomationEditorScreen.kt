@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -97,12 +99,12 @@ fun AutomationEditorRoute(
 
 /**
  * The "create a new automation" / "view and edit an existing automation" screen — name + enabled
- * toggle up top, then the hub's own Iniciadores/Ações/Condições/Finalizadores structure as four
+ * toggle up top, then the hub's own trigger/action/condition/finalizer structure as four
  * editable sections. Tapping a section's "+" swaps the whole screen for [EntryConfigScreen] rather
  * than pushing a nav destination, since it's just refining state that lives in this same
  * [AutomationEditorViewModel].
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AutomationEditorScreen(
     uiState: AutomationEditorUiState,
@@ -215,7 +217,7 @@ fun AutomationEditorScreen(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                Button(onClick = { showSaveConfirm = true }, enabled = uiState.canSave) { Text("Guardar") }
+                Button(onClick = { showSaveConfirm = true }, enabled = uiState.canSave) { Text("Save") }
             }
         },
     ) { padding ->
@@ -230,13 +232,13 @@ fun AutomationEditorScreen(
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = onNameChange,
-                label = { Text("Cenário") },
+                label = { Text("Scenario") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (uiState.enabled) "Ativado" else "Desativado", color = MaterialTheme.colorScheme.primary)
+                Text(if (uiState.enabled) "Enabled" else "Disabled", color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Switch(checked = uiState.enabled, onCheckedChange = onEnabledChange)
             }
@@ -250,8 +252,11 @@ fun AutomationEditorScreen(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(
+                // A scenario read back off the hub can easily have more entries than fit on one
+                // line, so these wrap rather than squeezing (or hiding) the trailing "+" card.
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     uiState.entriesBySection[section].orEmpty().forEach { entry ->
@@ -318,7 +323,7 @@ private fun AddEntryCard(onClick: () -> Unit) {
     }
 }
 
-/** The "Configurar iniciador/ação/condição/finalizador" sub-screen: pick either a device (scoped
+/** The "Configure trigger/action/condition/finalizer" sub-screen: pick either a device (scoped
  * by an optional floor/room filter) or a fixed time of day, then hand the resulting draft back to
  * [AutomationEditorScreen]. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -385,7 +390,7 @@ private fun EntryConfigScreen(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onCancel) { Text("Cancelar") }
+                TextButton(onClick = onCancel) { Text("Cancel") }
                 Spacer(Modifier.width(8.dp))
                 Button(
                     enabled = canSave,
@@ -426,7 +431,7 @@ private fun EntryConfigScreen(
                             }
                         onSave(entry)
                     },
-                ) { Text("Guardar") }
+                ) { Text("Save") }
             }
         },
     ) { padding ->
@@ -453,7 +458,7 @@ private fun EntryConfigScreen(
                                     ButtonDefaults.textButtonColors()
                                 },
                         ) {
-                            Text(if (option == AutomationEntryType.BY_DEVICE) "Por dispositivo" else "Temporizado")
+                            Text(if (option == AutomationEntryType.BY_DEVICE) "By device" else "Timed")
                         }
                     }
                 }
@@ -462,10 +467,10 @@ private fun EntryConfigScreen(
 
             if (type == AutomationEntryType.BY_DEVICE) {
                 if (floors.isNotEmpty()) {
-                    Text("Pisos", style = MaterialTheme.typography.labelLarge)
+                    Text("Floors", style = MaterialTheme.typography.labelLarge)
                     ExposedDropdownMenuBox(expanded = floorExpanded, onExpandedChange = { floorExpanded = it }) {
                         OutlinedTextField(
-                            value = selectedFloor?.let { "Piso $it" } ?: "Selecione um piso",
+                            value = selectedFloor?.let { "Floor $it" } ?: "Select a floor",
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = floorExpanded) },
@@ -482,7 +487,7 @@ private fun EntryConfigScreen(
                             )
                             floors.forEach { floor ->
                                 DropdownMenuItem(
-                                    text = { Text("Piso $floor") },
+                                    text = { Text("Floor $floor") },
                                     onClick = {
                                         selectedFloor = floor
                                         selectedRoomId = null
@@ -495,10 +500,10 @@ private fun EntryConfigScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                Text("Divisões", style = MaterialTheme.typography.labelLarge)
+                Text("Rooms", style = MaterialTheme.typography.labelLarge)
                 ExposedDropdownMenuBox(expanded = roomExpanded, onExpandedChange = { roomExpanded = it }) {
                     OutlinedTextField(
-                        value = roomsForFloor.firstOrNull { it.id == selectedRoomId }?.name ?: "Selecione uma divisão",
+                        value = roomsForFloor.firstOrNull { it.id == selectedRoomId }?.name ?: "Select a room",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roomExpanded) },
@@ -543,20 +548,20 @@ private fun EntryConfigScreen(
 
                 if (showsRangeFields) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Intervalo de valores", style = MaterialTheme.typography.labelLarge)
+                    Text("Value range", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = lowerBoundText,
                             onValueChange = { lowerBoundText = it },
-                            label = { Text("Mínimo") },
+                            label = { Text("Minimum") },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                         )
                         OutlinedTextField(
                             value = upperBoundText,
                             onValueChange = { upperBoundText = it },
-                            label = { Text("Máximo") },
+                            label = { Text("Maximum") },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                         )
@@ -566,7 +571,7 @@ private fun EntryConfigScreen(
                 if (showsStatusToggle) {
                     Spacer(Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Estado alvo: " + if (statusOn) "Ligado" else "Desligado")
+                        Text("Target state: " + if (statusOn) "On" else "Off")
                         Spacer(Modifier.width(8.dp))
                         Switch(checked = statusOn, onCheckedChange = { statusOn = it })
                     }
@@ -574,10 +579,10 @@ private fun EntryConfigScreen(
 
                 if (showsEventPicker) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Evento", style = MaterialTheme.typography.labelLarge)
+                    Text("Event", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(0 to "Evento 1", 1 to "Evento 2").forEach { (value, label) ->
+                        listOf(0 to "Event 1", 1 to "Event 2").forEach { (value, label) ->
                             val selected = triggerEvent == value
                             TextButton(
                                 onClick = { triggerEvent = value },
@@ -594,19 +599,19 @@ private fun EntryConfigScreen(
 
                 if (showsActionConfig) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Ação", style = MaterialTheme.typography.labelLarge)
+                    Text("Action", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
                     when (selectedDevice) {
                         is Device.BinaryOutput ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (binaryOutOn) "Ligar" else "Desligar")
+                                Text(if (binaryOutOn) "Turn on" else "Turn off")
                                 Spacer(Modifier.width(8.dp))
                                 Switch(checked = binaryOutOn, onCheckedChange = { binaryOutOn = it })
                             }
 
                         is Device.Shutter -> {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(SHUTTER_MODE_OPEN to "Abrir", SHUTTER_MODE_CLOSE to "Fechar", SHUTTER_MODE_PERCENTAGE to "Percentagem")
+                                listOf(SHUTTER_MODE_OPEN to "Open", SHUTTER_MODE_CLOSE to "Close", SHUTTER_MODE_PERCENTAGE to "Percentage")
                                     .forEach { (value, label) ->
                                         val selected = shutterMode == value
                                         TextButton(
@@ -625,7 +630,7 @@ private fun EntryConfigScreen(
                                 OutlinedTextField(
                                     value = actionPercentageText,
                                     onValueChange = { actionPercentageText = it },
-                                    label = { Text("Percentagem (0-100)") },
+                                    label = { Text("Percentage (0-100)") },
                                     modifier = Modifier.width(160.dp),
                                     singleLine = true,
                                 )
@@ -636,17 +641,17 @@ private fun EntryConfigScreen(
                             OutlinedTextField(
                                 value = actionPercentageText,
                                 onValueChange = { actionPercentageText = it },
-                                label = { Text("Percentagem (0-100)") },
+                                label = { Text("Percentage (0-100)") },
                                 modifier = Modifier.width(160.dp),
                                 singleLine = true,
                             )
 
-                        else -> Text("Este dispositivo dispara com uma única ação.", style = MaterialTheme.typography.bodySmall)
+                        else -> Text("This device fires with a single action.", style = MaterialTheme.typography.bodySmall)
                     }
 
                     Spacer(Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Ao mesmo tempo que a anterior")
+                        Text("At the same time as the previous one")
                         Spacer(Modifier.width(8.dp))
                         Switch(checked = withLast, onCheckedChange = { withLast = it })
                     }
@@ -654,13 +659,13 @@ private fun EntryConfigScreen(
                     OutlinedTextField(
                         value = delaySecondsText,
                         onValueChange = { delaySecondsText = it },
-                        label = { Text("Atraso (segundos)") },
+                        label = { Text("Delay (seconds)") },
                         modifier = Modifier.width(160.dp),
                         singleLine = true,
                     )
                 }
             } else {
-                Text("Tempo de início da ação:", style = MaterialTheme.typography.labelLarge)
+                Text("Start time:", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -681,7 +686,7 @@ private fun EntryConfigScreen(
 
                 if (section == AutomationSection.CONDITIONS) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Tempo de fim da condição:", style = MaterialTheme.typography.labelLarge)
+                    Text("End time:", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -700,7 +705,7 @@ private fun EntryConfigScreen(
                         )
                     }
                     Spacer(Modifier.height(16.dp))
-                    Text("Dias da semana", style = MaterialTheme.typography.labelLarge)
+                    Text("Days of the week", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         DAY_LABELS.forEachIndexed { index, label ->
@@ -756,7 +761,7 @@ private fun DevicePickerCell(
 }
 
 /** Monday..Sunday, matching [AutomationEntryDraft.daysOfWeek]'s 0=Monday..6=Sunday convention. */
-private val DAY_LABELS = listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+private val DAY_LABELS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 // Shutter.Action wire codes (§4/§11.2): CLOSE=0, OPEN=1, PERCENTAGE=2. Dimmer.Action's
 // PERCENTAGE=2 (the only code this UI ever sends for a dimmer) happens to share the same value.
@@ -789,17 +794,17 @@ private fun actionCodeAndPercentageFor(
 
 private fun configureTitleFor(section: AutomationSection): String =
     when (section) {
-        AutomationSection.TRIGGERS -> "Configurar iniciador de cenário"
-        AutomationSection.ACTIONS -> "Configurar ação"
-        AutomationSection.CONDITIONS -> "Configurar condição"
-        AutomationSection.FINALIZERS -> "Configurar finalizador de cenário"
+        AutomationSection.TRIGGERS -> "Configure trigger"
+        AutomationSection.ACTIONS -> "Configure action"
+        AutomationSection.CONDITIONS -> "Configure condition"
+        AutomationSection.FINALIZERS -> "Configure finalizer"
     }
 
 private fun typeLabelFor(section: AutomationSection): String =
     when (section) {
-        AutomationSection.TRIGGERS -> "Tipo de iniciador"
-        AutomationSection.CONDITIONS -> "Tipo de condicionador"
-        AutomationSection.FINALIZERS -> "Tipo de finalizador"
+        AutomationSection.TRIGGERS -> "Trigger type"
+        AutomationSection.CONDITIONS -> "Condition type"
+        AutomationSection.FINALIZERS -> "Finalizer type"
         AutomationSection.ACTIONS -> ""
     }
 

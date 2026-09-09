@@ -10,20 +10,16 @@ import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
-import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
-import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.model.AppUpdate
 import com.neteinstein.donaclone.core.model.DiscoveredHouse
 import com.neteinstein.donaclone.core.model.House
 import com.neteinstein.donaclone.core.model.HubType
-import com.neteinstein.donaclone.core.model.ThemeMode
 import com.neteinstein.donaclone.core.model.UpdateAvailability
 import com.neteinstein.donaclone.core.model.UpdateStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -45,8 +41,6 @@ class HousesViewModelTest {
     private val saveHouse = mockk<SaveHouseUseCase>(relaxUnitFun = true)
     private val deleteHouse = mockk<DeleteHouseUseCase>(relaxUnitFun = true)
     private val discoverHouses = mockk<DiscoverHousesUseCase>()
-    private val observeThemeMode = mockk<ObserveThemeModeUseCase>()
-    private val setThemeMode = mockk<SetThemeModeUseCase>(relaxUnitFun = true)
     private val checkForUpdate = mockk<CheckForUpdateUseCase>()
     private val downloadUpdate = mockk<DownloadUpdateUseCase>()
     private val canInstallUpdates = mockk<CanInstallUpdatesUseCase>()
@@ -57,7 +51,6 @@ class HousesViewModelTest {
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         coEvery { observeHouses() } returns flowOf(emptyList())
-        every { observeThemeMode() } returns flowOf(ThemeMode.SYSTEM)
     }
 
     @After
@@ -71,8 +64,6 @@ class HousesViewModelTest {
             saveHouse,
             deleteHouse,
             discoverHouses,
-            observeThemeMode,
-            setThemeMode,
             checkForUpdate,
             downloadUpdate,
             canInstallUpdates,
@@ -178,17 +169,6 @@ class HousesViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             coVerify { deleteHouse("Home") }
-        }
-
-    @Test
-    fun `selecting a theme mode persists it`() =
-        runTest(dispatcher) {
-            val viewModel = createViewModel()
-
-            viewModel.onThemeModeSelected(ThemeMode.DARK)
-            dispatcher.scheduler.advanceUntilIdle()
-
-            coVerify { setThemeMode(ThemeMode.DARK) }
         }
 
     @Test

@@ -30,9 +30,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,7 +49,6 @@ import com.neteinstein.donaclone.core.designsystem.component.SectionHeader
 import com.neteinstein.donaclone.core.designsystem.component.UpdateSection
 import com.neteinstein.donaclone.core.model.DiscoveredHouse
 import com.neteinstein.donaclone.core.model.House
-import com.neteinstein.donaclone.core.model.ThemeMode
 import com.neteinstein.donaclone.core.model.UpdateStatus
 import org.koin.androidx.compose.koinViewModel
 
@@ -93,7 +89,6 @@ fun HousesRoute(
         onDraftChange = viewModel::updateDraft,
         onApplyDiscovered = viewModel::applyDiscoveredHouse,
         onSave = viewModel::saveDraft,
-        onThemeModeSelected = viewModel::onThemeModeSelected,
         onUpdateClicked = viewModel::onUpdateClicked,
         onEnableSideloadingClicked = viewModel::onEnableSideloadingClicked,
     )
@@ -111,7 +106,6 @@ fun HousesScreen(
     onDraftChange: ((House) -> House) -> Unit,
     onApplyDiscovered: (DiscoveredHouse) -> Unit,
     onSave: () -> Unit,
-    onThemeModeSelected: (ThemeMode) -> Unit = {},
     onUpdateClicked: () -> Unit = {},
     onEnableSideloadingClicked: () -> Unit = {},
 ) {
@@ -119,13 +113,11 @@ fun HousesScreen(
         HousesMode.List ->
             HousesListScreen(
                 houses = uiState.houses,
-                themeMode = uiState.themeMode,
                 updateStatus = uiState.updateStatus,
                 onBack = onBack,
                 onAddHouse = onAddHouse,
                 onEditHouse = onEditHouse,
                 onDeleteHouse = onDeleteHouse,
-                onThemeModeSelected = onThemeModeSelected,
                 onUpdateClicked = onUpdateClicked,
                 onEnableSideloadingClicked = onEnableSideloadingClicked,
             )
@@ -148,13 +140,11 @@ fun HousesScreen(
 @Composable
 private fun HousesListScreen(
     houses: List<House>,
-    themeMode: ThemeMode,
     updateStatus: UpdateStatus,
     onBack: () -> Unit,
     onAddHouse: () -> Unit,
     onEditHouse: (House) -> Unit,
     onDeleteHouse: (House) -> Unit,
-    onThemeModeSelected: (ThemeMode) -> Unit,
     onUpdateClicked: () -> Unit,
     onEnableSideloadingClicked: () -> Unit,
 ) {
@@ -182,26 +172,6 @@ private fun HousesListScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
         ) {
-            SectionHeader("Appearance")
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                ThemeMode.entries.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = themeMode == mode,
-                        onClick = { onThemeModeSelected(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
-                    ) {
-                        Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
-                    }
-                }
-            }
-
-            SectionHeader("Updates")
-            UpdateSection(
-                status = updateStatus,
-                onUpdateClicked = onUpdateClicked,
-                onEnableSideloadingClicked = onEnableSideloadingClicked,
-            )
-
             SectionHeader("Houses")
             if (houses.isEmpty()) {
                 Column(
@@ -240,6 +210,14 @@ private fun HousesListScreen(
                     )
                 }
             }
+
+            SectionHeader("Updates")
+            UpdateSection(
+                status = updateStatus,
+                onUpdateClicked = onUpdateClicked,
+                onEnableSideloadingClicked = onEnableSideloadingClicked,
+            )
+
             Spacer(Modifier.height(88.dp))
         }
     }

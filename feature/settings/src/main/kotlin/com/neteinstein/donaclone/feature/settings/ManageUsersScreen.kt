@@ -28,6 +28,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -106,6 +107,8 @@ fun ManageUsersScreen(
                 draft = mode.draft,
                 roles = uiState.roles,
                 isNew = mode.original == null,
+                error = mode.error,
+                isSaving = mode.isSaving,
                 onBack = onCancelEditing,
                 onDraftChange = onDraftChange,
                 onSave = onSave,
@@ -220,6 +223,8 @@ private fun EditUserScreen(
     draft: UserDraft,
     roles: List<Role>,
     isNew: Boolean,
+    error: String?,
+    isSaving: Boolean,
     onBack: () -> Unit,
     onDraftChange: ((UserDraft) -> UserDraft) -> Unit,
     onSave: () -> Unit,
@@ -282,8 +287,18 @@ private fun EditUserScreen(
             }
             Spacer(Modifier.height(24.dp))
 
-            Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                Text("Save")
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
+            Button(onClick = onSave, enabled = !isSaving, modifier = Modifier.fillMaxWidth()) {
+                Text(if (isSaving) "Saving…" else "Save")
             }
         }
     }

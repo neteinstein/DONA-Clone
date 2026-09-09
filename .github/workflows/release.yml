@@ -70,6 +70,23 @@ jobs:
           TAG="v${VERSION_WITH_BUILD}"
           echo "release_tag=${TAG}" >> $GITHUB_OUTPUT
 
+      # Release builds are minified and obfuscated (app/build.gradle.kts sets isMinifyEnabled),
+      # so a stack trace from a released APK is unreadable without the R8 mapping that produced
+      # it - and that mapping only exists on this runner, which is destroyed when the job ends.
+      # Keep it as a build artifact rather than a release asset: it's needed to deobfuscate a
+      # crash report, not by anyone installing the app, and publishing it alongside the APK
+      # would hand back most of what obfuscating bought.
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping-${{ steps.version.outputs.version_with_build }}
+          path: |
+            app/build/outputs/mapping/release/mapping.txt
+            app/build/outputs/mapping/release/seeds.txt
+            app/build/outputs/mapping/release/usage.txt
+          retention-days: 90
+          if-no-files-found: error
+
       - name: Rename APK
         id: rename
         run: |

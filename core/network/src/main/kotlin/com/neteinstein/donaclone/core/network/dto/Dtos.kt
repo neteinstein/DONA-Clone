@@ -49,6 +49,15 @@ data class AmbienceDto(
     val enabled: Boolean = true,
     /** Id of the first [ActionDto] in the scenario's action chain (protocol notes §11.6). */
     val firstAction: Int? = null,
+    /** Ids of this scenario's start triggers. CONFIRMED against a live hub: `read ambience`
+     * answers with plain id arrays here, not the embedded sub-objects §3.2 guessed at — each id
+     * has to be fetched separately with [DomotalkApi.readTrigger][
+     * com.neteinstein.donaclone.core.network.api.DomotalkApi.readTrigger]. */
+    val startTriggers: List<Int> = emptyList(),
+    /** Ids of this scenario's stop triggers ("finalizers"), same shape as [startTriggers]. */
+    val stopTriggers: List<Int> = emptyList(),
+    /** Ids of this scenario's conditions, same shape as [startTriggers]. */
+    val conditions: List<Int> = emptyList(),
 )
 
 /**
@@ -87,7 +96,15 @@ data class TriggerDto(
 data class ConditionDto(
     val id: Int? = null,
     val name: String? = null,
-    /** UI-level selector, NOT `Condition.*_TYPE`: 1=DEVICE_CONDITION, 6=TIMED_CONDITION. */
+    /**
+     * On **create**, the UI-level selector: 1=DEVICE_CONDITION, 6=TIMED_CONDITION.
+     *
+     * On **read**, CONFIRMED against a live hub, a device condition comes back re-typed with the
+     * *device kind* instead (`Condition.*_TYPE`: ANALOG=0, BINARY_IN=1, COUNTER=2, BINARY_OUT=3,
+     * PULSE=4, SHUTTER=5, DIMMER=6) — so a read `type` of 6 is ambiguous between "timed" and
+     * "dimmer". Never branch on this field alone when parsing; a timed condition is the one that
+     * carries [after]/[before]/[daysOfTheWeek] and no [conditioner].
+     */
     val type: Int,
     /** TIMED_CONDITION only, `"HH:mm"`. */
     val after: String? = null,

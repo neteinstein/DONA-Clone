@@ -32,6 +32,10 @@ object AutomationActionType {
  */
 data class TriggerDraft(
     val type: Int,
+    /** Non-null when this trigger already exists on the hub (it was read back off the ambience
+     * being edited) — [com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase] then
+     * leaves it alone instead of creating a duplicate. */
+    val existingId: Int? = null,
     val name: String? = null,
     val time: String? = null,
     val triggerer: Int? = null,
@@ -49,6 +53,8 @@ data class TriggerDraft(
 /** Domain-layer counterpart of [com.neteinstein.donaclone.core.network.dto.ConditionDto]. */
 data class ConditionDraft(
     val type: Int,
+    /** See [TriggerDraft.existingId]. */
+    val existingId: Int? = null,
     val name: String? = null,
     val after: String? = null,
     val before: String? = null,
@@ -65,6 +71,8 @@ data class ConditionDraft(
  * is determined by list position in [AutomationDraft.actions], not by a field here. */
 data class ActionDraft(
     val type: Int,
+    /** See [TriggerDraft.existingId]. */
+    val existingId: Int? = null,
     val device: Int,
     val deviceName: String? = null,
     val deviceType: Int,
@@ -82,6 +90,26 @@ data class ActionDraft(
 data class AutomationDraft(
     val name: String,
     val enabled: Boolean,
+    val startTriggers: List<TriggerDraft> = emptyList(),
+    val stopTriggers: List<TriggerDraft> = emptyList(),
+    val conditions: List<ConditionDraft> = emptyList(),
+    val actions: List<ActionDraft> = emptyList(),
+    /** Hub ids of triggers the user removed from an existing scenario — `delete trigger` (§11.6
+     * has no `update` for these, only delete-then-create). */
+    val removedTriggerIds: List<Int> = emptyList(),
+    /** Hub ids of conditions the user removed, deleted the same way as [removedTriggerIds]. */
+    val removedConditionIds: List<Int> = emptyList(),
+    /** Hub ids of actions the user removed. Removing one truncates the chain from that point on
+     * (§11.6), so this carries the whole truncated tail, not just the entry that was tapped. */
+    val removedActionIds: List<Int> = emptyList(),
+)
+
+/**
+ * An existing scenario's sub-objects, read back off the hub so the editor can show (and keep)
+ * them. Every entry carries its hub id in `existingId`, which is what tells
+ * [com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase] not to re-create it.
+ */
+data class AutomationDetail(
     val startTriggers: List<TriggerDraft> = emptyList(),
     val stopTriggers: List<TriggerDraft> = emptyList(),
     val conditions: List<ConditionDraft> = emptyList(),

@@ -20,6 +20,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -212,8 +214,44 @@ class ManageUsersViewModelTest {
             viewModel.saveDraft()
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertTrue(viewModel.uiState.value.mode is ManageUsersMode.Editing)
-            assertEquals("nope", viewModel.uiState.value.errorMessage)
+            // On the editing mode, not uiState.errorMessage — the form is what's on screen, and
+            // only the *list* screen ever renders uiState.errorMessage.
+            val mode = viewModel.uiState.value.mode
+            assertTrue(mode is ManageUsersMode.Editing)
+            assertEquals("nope", (mode as ManageUsersMode.Editing).error)
+            assertFalse(mode.isSaving)
+        }
+
+    @Test
+    fun `saving a user with a blank name explains why instead of doing nothing`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startEditingUser(alice)
+            viewModel.updateDraft { it.copy(name = "  ") }
+
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val mode = viewModel.uiState.value.mode
+            assertTrue(mode is ManageUsersMode.Editing)
+            assertEquals("Give this user a name.", (mode as ManageUsersMode.Editing).error)
+            coVerify(exactly = 0) { updateUser(any(), any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `editing a draft clears the error left over from the last attempt`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startEditingUser(alice)
+            viewModel.updateDraft { it.copy(name = "") }
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.updateDraft { it.copy(name = "Alice") }
+
+            assertNull((viewModel.uiState.value.mode as ManageUsersMode.Editing).error)
         }
 
     @Test

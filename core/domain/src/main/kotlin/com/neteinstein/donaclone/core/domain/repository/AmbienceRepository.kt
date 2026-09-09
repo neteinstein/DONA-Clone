@@ -3,11 +3,18 @@ package com.neteinstein.donaclone.core.domain.repository
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.model.ActionDraft
 import com.neteinstein.donaclone.core.model.Ambience
+import com.neteinstein.donaclone.core.model.AutomationDetail
 import com.neteinstein.donaclone.core.model.ConditionDraft
 import com.neteinstein.donaclone.core.model.TriggerDraft
 
 interface AmbienceRepository {
     suspend fun getAmbiences(): DonaResult<List<Ambience>>
+
+    /** Reads back everything an existing scenario is made of: `read ambience` hands out plain
+     * `startTriggers`/`stopTriggers`/`conditions` id arrays plus a `firstAction` chain head, each
+     * of which needs its own id-filtered `read trigger`/`condition`/`action` (protocol notes
+     * §11.6). Requires [getAmbiences] to have populated the raw cache first. */
+    suspend fun getAutomationDetail(ambienceId: Int): DonaResult<AutomationDetail>
 
     suspend fun triggerAmbience(
         id: Int,
@@ -50,6 +57,9 @@ interface AmbienceRepository {
         triggerId: Int,
     ): DonaResult<Unit>
 
+    /** `delete trigger`, filtered by `id`. */
+    suspend fun deleteTrigger(id: Int): DonaResult<Unit>
+
     /** `create condition`, returning the hub-assigned id. */
     suspend fun createCondition(condition: ConditionDraft): DonaResult<Int>
 
@@ -57,6 +67,9 @@ interface AmbienceRepository {
         ambienceId: Int,
         conditionId: Int,
     ): DonaResult<Unit>
+
+    /** `delete condition`, filtered by `id`. */
+    suspend fun deleteCondition(id: Int): DonaResult<Unit>
 
     /** `create action`, returning the hub-assigned id. */
     suspend fun createAction(action: ActionDraft): DonaResult<Int>
@@ -67,4 +80,7 @@ interface AmbienceRepository {
         actionId: Int,
         nextActionId: Int,
     ): DonaResult<Unit>
+
+    /** `delete action`, filtered by `id`. */
+    suspend fun deleteAction(id: Int): DonaResult<Unit>
 }

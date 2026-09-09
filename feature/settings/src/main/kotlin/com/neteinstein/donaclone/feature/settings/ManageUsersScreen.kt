@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
@@ -45,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.neteinstein.donaclone.core.designsystem.component.EmptyState
 import com.neteinstein.donaclone.core.designsystem.component.ErrorState
@@ -259,12 +262,35 @@ private fun EditUserScreen(
 
             OutlinedTextField(
                 value = draft.password,
-                onValueChange = { value -> onDraftChange { it.copy(password = value) } },
+                onValueChange = { value ->
+                    onDraftChange { it.copy(password = value, oldPassword = if (value.isBlank()) "" else it.oldPassword) }
+                },
                 label = { Text(if (isNew) "Password" else "New password (leave blank to keep current)") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (!isNew && draft.password.isNotBlank()) {
+                Spacer(Modifier.height(12.dp))
+                var oldPasswordVisible by remember { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = draft.oldPassword,
+                    onValueChange = { value -> onDraftChange { it.copy(oldPassword = value) } },
+                    label = { Text("Current password") },
+                    singleLine = true,
+                    visualTransformation = if (oldPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { oldPasswordVisible = !oldPasswordVisible }) {
+                            Icon(
+                                if (oldPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = if (oldPasswordVisible) "Hide password" else "Show password",
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(12.dp))
 
             RoleDropdown(

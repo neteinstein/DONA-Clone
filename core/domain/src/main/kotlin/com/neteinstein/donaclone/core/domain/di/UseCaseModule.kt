@@ -13,6 +13,7 @@ import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetActiveHouseUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAuditLogUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetAutomationDetailUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetCurrentSessionUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRolesUseCase
@@ -76,6 +77,7 @@ val useCaseModule =
         factoryOf(::ObserveDeviceUpdatesUseCase)
 
         factoryOf(::GetAmbiencesUseCase)
+        factoryOf(::GetAutomationDetailUseCase)
         factoryOf(::TriggerAmbienceUseCase)
         factoryOf(::SaveAutomationUseCase)
         factoryOf(::DeleteAutomationUseCase)

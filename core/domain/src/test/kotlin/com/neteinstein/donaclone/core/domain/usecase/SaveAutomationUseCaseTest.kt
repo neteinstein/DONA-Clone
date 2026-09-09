@@ -108,4 +108,60 @@ class SaveAutomationUseCaseTest {
             assertEquals(DonaResult.Error(failure), result)
             coVerify(exactly = 0) { repository.linkStartTrigger(any(), any()) }
         }
+
+    @Test
+    fun `entries that already exist on the hub are left alone instead of being re-created`() =
+        runTest {
+            val existing = timedTrigger.copy(existingId = 11)
+            val draft = AutomationDraft(name = "Movie night", enabled = true, startTriggers = listOf(existing))
+            coEvery { repository.updateAmbienceFields(5, "Movie night", true) } returns DonaResult.Success(Unit)
+
+            val result = useCase(5, draft)
+
+            assertEquals(DonaResult.Success(5), result)
+            coVerify(exactly = 0) { repository.createTrigger(any()) }
+            coVerify(exactly = 0) { repository.linkStartTrigger(any(), any()) }
+        }
+
+    @Test
+    fun `a new action appended to an existing chain is spliced after the last existing one`() =
+        runTest {
+            val existing = binaryAction.copy(existingId = 100)
+            val added = binaryAction.copy(device = 43)
+            val draft = AutomationDraft(name = "Movie night", enabled = true, actions = listOf(existing, added))
+            coEvery { repository.updateAmbienceFields(any(), any(), any()) } returns DonaResult.Success(Unit)
+            coEvery { repository.createAction(added) } returns DonaResult.Success(101)
+            coEvery { repository.setActionNext(100, 101) } returns DonaResult.Success(Unit)
+
+            val result = useCase(5, draft)
+
+            assertTrue(result is DonaResult.Success)
+            coVerify { repository.setActionNext(100, 101) }
+            coVerify(exactly = 0) { repository.setAmbienceFirstAction(any(), any()) }
+        }
+
+    @Test
+    fun `removed entries are deleted before anything new is created`() =
+        runTest {
+            val draft =
+                AutomationDraft(
+                    name = "Movie night",
+                    enabled = true,
+                    removedTriggerIds = listOf(11),
+                    removedConditionIds = listOf(31),
+                    removedActionIds = listOf(100, 101),
+                )
+            coEvery { repository.updateAmbienceFields(any(), any(), any()) } returns DonaResult.Success(Unit)
+            coEvery { repository.deleteTrigger(11) } returns DonaResult.Success(Unit)
+            coEvery { repository.deleteCondition(31) } returns DonaResult.Success(Unit)
+            coEvery { repository.deleteAction(any()) } returns DonaResult.Success(Unit)
+
+            val result = useCase(5, draft)
+
+            assertTrue(result is DonaResult.Success)
+            coVerify { repository.deleteTrigger(11) }
+            coVerify { repository.deleteCondition(31) }
+            coVerify { repository.deleteAction(100) }
+            coVerify { repository.deleteAction(101) }
+        }
 }

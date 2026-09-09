@@ -138,6 +138,19 @@ interface DomotalkApi {
      * client always deletes and recreates instead. */
     suspend fun deleteTrigger(id: Int)
 
+    /** `read trigger` filtered by `id` (CONFIRMED against a live hub). Note the *unfiltered*
+     * `read trigger` returns a lighter projection that drops `triggererType`/`triggererSubtype`/
+     * `deviceRoom`, so an id-filtered read is the only way to get a whole trigger back. */
+    suspend fun readTrigger(id: Int): TriggerDto?
+
+    /** `read condition` filtered by `id`. Same "by id returns more fields" caveat as
+     * [readTrigger] — the list form drops `deviceRoom`. */
+    suspend fun readCondition(id: Int): ConditionDto?
+
+    /** `read action` filtered by `id`. Same caveat again — the list form drops `nextAction`,
+     * `deviceName`, `deviceType` and `deviceRoom`, which makes it useless for walking the chain. */
+    suspend fun readAction(id: Int): ActionDto?
+
     /** `create condition`, `options.object = <condition, no id>`. */
     suspend fun createCondition(condition: ConditionDto): ConditionDto
 
@@ -270,6 +283,12 @@ class DomotalkApiImpl(
         asJsonObjects(socket.request("read", "ambience")).map { raw ->
             AmbienceSnapshot(json.decodeFromJsonElement(AmbienceDto.serializer(), raw), raw)
         }
+
+    override suspend fun readTrigger(id: Int): TriggerDto? = readById("trigger", TriggerDto.serializer(), id)
+
+    override suspend fun readCondition(id: Int): ConditionDto? = readById("condition", ConditionDto.serializer(), id)
+
+    override suspend fun readAction(id: Int): ActionDto? = readById("action", ActionDto.serializer(), id)
 
     override suspend fun readMasterLog(filters: JsonArray?): List<MasterLogEntryDto> =
         decodeList(socket.request("read", "masterLog", filters = filters), MasterLogEntryDto.serializer())
@@ -441,6 +460,24 @@ class DomotalkApiImpl(
                 )
             }
         socket.request("create", subject, options)
+    }
+
+    /** `read <subject>` filtered by `id`. The hub answers a single-match id filter with the bare
+     * object rather than a one-element array, but tolerate both shapes; an unknown id comes back
+     * empty, which maps to null. */
+    private suspend fun <T> readById(
+        subject: String,
+        serializer: KSerializer<T>,
+        id: Int,
+    ): T? {
+        val element = socket.request("read", subject, filters = idFilter(id))
+        val obj =
+            when (element) {
+                is JsonObject -> element
+                is JsonArray -> element.firstOrNull() as? JsonObject
+                else -> null
+            } ?: return null
+        return json.decodeFromJsonElement(serializer, obj)
     }
 
     /** `filters: [{"field":"id","operation":"equal","value":<id>}]` — the "delete filtered by id"

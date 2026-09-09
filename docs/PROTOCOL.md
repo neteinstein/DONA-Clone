@@ -636,7 +636,7 @@ Request shape is always `{"verb": <string>, "subject": <string>, "options"?: {..
 | Device associations ★ | `deviceAssociation` (read filtered by `inid` / create / delete) — links an input's event (`BinaryIn.EVENT_ACTION1`/`2`) to an output action; `DeviceAssociation` type codes: `BINARY_OUT=0, PULSE=1, SHUTTER=2, DIMMER=3` | `deviceCollectionFactory.js`, `app/models/DeviceAssociation.js` |
 | Per-device notification prefs ★ | `<subject>UserNotifications` (e.g. `binaryOutUserNotifications`) (read filtered by `<subject>Id`) — dynamically named from `Device.getSubjectForType(device.type) + 'UserNotifications'` | `deviceCollectionFactory.js` |
 | Ambiences/scenes | `ambience` (read all — **matches `readAmbiences()`**; create/update — **matches `updateAmbience()`**/delete ★; action w/ `Action.PLAY_AMBIENCE`\|`STOP_AMBIENCE` — **matches `sendAmbienceAction()`**) | `ambienceCollectionFactory.js` |
-| Ambience sub-objects ★ | `trigger` (read by `id` / create, `Trigger.Type`: `INTERRUPT=0, TIMED=1, SENSOR=2, CONDITION=3` / delete); `condition` (read by `id` / create, `Condition.*_TYPE`: `ANALOG=0, BINARY_IN=1, COUNTER=2, BINARY_OUT=3, PULSE=4, SHUTTER=5, DIMMER=6` / delete); `action` (read by `id` / create / update / delete) — these are ambience-internal building blocks, separate `read`able/`create`able entities, not embedded sub-JSON as PROTOCOL.md §3.2 speculated (`q4.u`/`q4.c` "not fully decompiled"); linking join-subjects `ambienceStartTrigger`, `ambienceStopTrigger`, `ambienceCondition` (create only, `options.object = {ambience: <id>, startTrigger\|stopTrigger\|condition: <id>}`) | `ambienceCollectionFactory.js`, `app/models/Trigger.js`, `app/models/conditions/Condition.js` |
+| Ambience sub-objects ★ | `trigger` (read by `id` / create, `Trigger.Type`: `INTERRUPT=0, TIMED=1, SENSOR=2, CONDITION=3` / delete); `condition` (read by `id` / create, `Condition.*_TYPE`: `ANALOG=0, BINARY_IN=1, COUNTER=2, BINARY_OUT=3, PULSE=4, SHUTTER=5, DIMMER=6` / delete); `action` (read by `id` / create / update / delete) — these are ambience-internal building blocks, separate `read`able/`create`able entities, not embedded sub-JSON as PROTOCOL.md §3.2 speculated (`q4.u`/`q4.c` "not fully decompiled"); linking join-subjects `ambienceStartTrigger`, `ambienceStopTrigger`, `ambienceCondition` (create only, `options.object = {ambience: <id>, startTrigger\|stopTrigger\|condition: <id>}`) — the ambience's own `read` returns these as id arrays, see §11.7 | `ambienceCollectionFactory.js`, `app/models/Trigger.js`, `app/models/conditions/Condition.js` |
 | Alarms | `alarm` (read/create/update/delete ★, read matches this repo's alarm-adjacent needs though `DomotalkApi.kt` has no dedicated alarm reader yet); `alarmUser` (read filtered by `alarmid` / create `{alarm,user}` / delete filtered by `alarmid`+`userid`) ★; `alarmUserNotifications` (read filtered by `alarmid` / update w/ per-user `notifyOnArm/Disarm/Alert/AlertStop` flags) ★ — arm/disarm themselves are **not** a dedicated verb: arm = fire the alarm's `armOutput` as a normal `pulse` action (§4); disarm = fire `pulse` action on `armOutput`(if `coupledOutputs`)/`disarmOutput` with an extra `options.password` = MD5(pin) — **this `password` option on a `pulse` action is new, not in §4's action shape** | `alarmCollectionFactory.js` |
 | Video cameras | `videoCamera` (read all — **matches `readAmbiences()`-style list reads**, though `DomotalkApi.kt` has no camera reader yet / create/update/delete ★) | `videoCameraCollectionFactory.js` |
 | Video intercom | `videoIntercom` (read all / create/update/delete ★); `videoIntercomUserNotifications` (read filtered by `videoIntercomId` / update w/ `notifyOnDoorbell`) ★ | `videoIntercomCollectionFactory.js` |
@@ -717,3 +717,48 @@ Note: `Condition.ANALOG_TYPE=0 / BINARY_IN_TYPE=1 / COUNTER_TYPE=2 / BINARY_OUT_
 - **Delete**: `delete trigger`/`condition`/`action` filtered by `id`. Deleting a non-last **action** in the chain is observed to **truncate everything from that point on** (`$scope.actions.splice(index, $scope.actions.length - index)` after one `delete action` call) — there's no observed "delete middle node, reconnect the list" support; treat mid-chain deletion as "remove this action and everything after it" unless proven otherwise against a real hub.
 - **Multi-device actions**: selecting several output devices in one "add action" step creates **one action object per device**, each appended to the end of the (shared) chain in sequence, with `EditActionSuccessionModalController` shown once per device to set that device's own `withLast`/`delayFromLast`.
 - **New ambience, no actions/triggers yet**: `ambience.firstAction` starts unset; the first action created sets it via `update ambience` (`options.object = <ambience with firstAction set>`).
+
+### 11.7 Reading an existing ambience's triggers/conditions/actions back (VERIFIED against a live hub)
+
+Verified by driving the app against a real DPU and logging the raw envelopes. This **corrects two
+earlier claims**: §3.2's guess that `startTriggers`/`stopTriggers`/`conditions` are embedded
+sub-objects, and §11.4's "create only, no confirmed `read`" note on the ambience sub-objects.
+
+**`read ambience`** answers with plain **id arrays**, not embedded objects:
+
+```json
+{"firstAction":10021,"isPlaying":false,"stopTriggers":[],"startTriggers":[10020],
+ "name":"Abrir Portão Ent. > Luzes On","id":10019,"conditions":[10038,10023],"enabled":true}
+```
+
+**`read trigger` / `read condition` / `read action` all work**, both unfiltered and filtered by
+`id` (`filters: [{"field":"id","operation":"equal","value":<id>}]`). They are what turns those ids
+into whole objects, so an existing scenario *is* fully readable — which is what
+[`AmbienceRepositoryImpl.getAutomationDetail`](../core/data/src/main/kotlin/com/neteinstein/donaclone/core/data/ambience/AmbienceRepositoryImpl.kt)
+does, walking `firstAction -> nextAction -> …` for the action chain.
+
+**The unfiltered list form is a lighter projection — don't use it to load an entry.** Same trigger,
+both ways:
+
+```
+read trigger          -> {"triggerer":339,"name":"Sensor Porta Pedonal","id":10020,"type":0,"event":1}
+read trigger id=10020 -> {"triggerer":339,"triggererSubtype":20,"triggererType":10,"deviceRoom":116,
+                          "name":"Sensor Porta Pedonal","id":10020,"type":0,"event":1}
+```
+
+The list form drops `triggererType`/`triggererSubtype`/`deviceRoom` on triggers, `deviceRoom` on
+conditions, and `nextAction`/`deviceName`/`deviceType`/`deviceRoom` on actions — the last of which
+makes it useless for following the chain.
+
+**A read-back `condition.type` is NOT the create-time selector.** §11.6 documents `type` as the UI
+selector (`1=DEVICE_CONDITION`, `6=TIMED_CONDITION`) and says the separate `Condition.*_TYPE` enum
+is never sent by the client. On read, the hub answers with **that other enum** for device
+conditions — observed `1` for a BinaryIn conditioner, `3` for a BinaryOut, `5` for a Shutter
+carrying `greaterThanValue`/`lesserThanValue`. Timed conditions do come back as `6` with
+`after`/`before`/`daysOfTheWeek`, so `6` alone is ambiguous between "timed" and "dimmer". Branch on
+the *shape* instead: a timed condition is the one with a wall-clock window and no `conditioner`.
+
+**`trigger.event` has at least three values**, not the two `BinaryIn.EVENT_ACTION1=0` /
+`EVENT_ACTION2=1` §11.6 lists — `2` appears on this hub's long-press scenarios ("Focos Escadas P1 -
+Click Longo"). The editor's event picker still only offers the two documented ones; a read-back `2`
+round-trips untouched because an untouched entry is never re-created.

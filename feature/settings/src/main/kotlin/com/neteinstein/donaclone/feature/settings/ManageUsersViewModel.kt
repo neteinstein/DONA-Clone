@@ -25,6 +25,12 @@ sealed interface ManageUsersMode {
     data class Editing(
         val original: User?,
         val draft: UserDraft,
+        /** Why the last Save attempt didn't go through — either a validation rule the form itself
+         * enforces, or the hub's own rejection. Shown on the form, since
+         * [ManageUsersUiState.errorMessage] only ever surfaces on the *list* screen and a save
+         * failure would otherwise be completely invisible. */
+        val error: String? = null,
+        val isSaving: Boolean = false,
     ) : ManageUsersMode
 }
 
@@ -125,20 +131,30 @@ class ManageUsersViewModel(
     fun updateDraft(transform: (UserDraft) -> UserDraft) {
         _uiState.update { state ->
             val editing = state.mode as? ManageUsersMode.Editing ?: return@update state
-            state.copy(mode = editing.copy(draft = transform(editing.draft)))
+            state.copy(mode = editing.copy(draft = transform(editing.draft), error = null))
         }
     }
 
+    private fun failEditing(message: String) =
+        _uiState.update { state ->
+            val editing = state.mode as? ManageUsersMode.Editing ?: return@update state
+            state.copy(mode = editing.copy(error = message, isSaving = false))
+        }
+
     fun saveDraft() {
         val editing = _uiState.value.mode as? ManageUsersMode.Editing ?: return
+        if (editing.isSaving) return
         val draft = editing.draft
         val original = editing.original
-        val roleId = draft.roleId ?: return
-        if (draft.name.isBlank()) return
-        if (original == null && draft.password.isBlank()) return
+        if (draft.name.isBlank()) return failEditing("Give this user a name.")
+        val roleId = draft.roleId ?: return failEditing("Pick a role for this user.")
+        if (original == null && draft.password.isBlank()) return failEditing("A new user needs a password.")
 
         viewModelScope.launch {
-            _uiState.update { it.copy(errorMessage = null) }
+            _uiState.update { state ->
+                val current = state.mode as? ManageUsersMode.Editing ?: return@update state
+                state.copy(mode = current.copy(error = null, isSaving = true), errorMessage = null)
+            }
             val result =
                 if (original == null) {
                     createUser(draft.name, draft.password, roleId, draft.enabled, draft.remoteAccessible).map { }
@@ -157,8 +173,7 @@ class ManageUsersViewModel(
                     _uiState.update { it.copy(mode = ManageUsersMode.List) }
                     refresh()
                 }
-                is DonaResult.Error ->
-                    _uiState.update { it.copy(errorMessage = result.failure.message ?: "Failed to save user") }
+                is DonaResult.Error -> failEditing(result.failure.message ?: "Failed to save user")
             }
         }
     }

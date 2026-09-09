@@ -10,14 +10,11 @@ import com.neteinstein.donaclone.core.domain.usecase.DiscoverHousesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.DownloadUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.InstallUpdateUseCase
 import com.neteinstein.donaclone.core.domain.usecase.ObserveHousesUseCase
-import com.neteinstein.donaclone.core.domain.usecase.ObserveThemeModeUseCase
 import com.neteinstein.donaclone.core.domain.usecase.OpenInstallPermissionSettingsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveHouseUseCase
-import com.neteinstein.donaclone.core.domain.usecase.SetThemeModeUseCase
 import com.neteinstein.donaclone.core.model.AppUpdate
 import com.neteinstein.donaclone.core.model.DiscoveredHouse
 import com.neteinstein.donaclone.core.model.House
-import com.neteinstein.donaclone.core.model.ThemeMode
 import com.neteinstein.donaclone.core.model.UpdateAvailability
 import com.neteinstein.donaclone.core.model.UpdateStatus
 import com.neteinstein.donaclone.core.model.toUpdateStatus
@@ -43,7 +40,6 @@ data class HousesUiState(
     val mode: HousesMode = HousesMode.List,
     val discovered: kotlin.collections.List<DiscoveredHouse> = emptyList(),
     val isDiscovering: Boolean = false,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val updateStatus: UpdateStatus = UpdateStatus.Idle,
 )
 
@@ -52,8 +48,6 @@ class HousesViewModel(
     private val saveHouse: SaveHouseUseCase,
     private val deleteHouse: DeleteHouseUseCase,
     private val discoverHouses: DiscoverHousesUseCase,
-    observeThemeMode: ObserveThemeModeUseCase,
-    private val setThemeMode: SetThemeModeUseCase,
     private val checkForUpdate: CheckForUpdateUseCase,
     private val downloadUpdate: DownloadUpdateUseCase,
     private val canInstallUpdates: CanInstallUpdatesUseCase,
@@ -70,13 +64,6 @@ class HousesViewModel(
         viewModelScope.launch {
             observeHouses().collect { houses -> _uiState.update { it.copy(houses = houses) } }
         }
-        viewModelScope.launch {
-            observeThemeMode().collect { mode -> _uiState.update { it.copy(themeMode = mode) } }
-        }
-    }
-
-    fun onThemeModeSelected(mode: ThemeMode) {
-        viewModelScope.launch { setThemeMode(mode) }
     }
 
     /**

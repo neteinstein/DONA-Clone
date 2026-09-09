@@ -7,6 +7,7 @@ import com.neteinstein.donaclone.core.network.api.GitHubApi
 import com.neteinstein.donaclone.core.network.connectivity.ConnectivityObserver
 import com.neteinstein.donaclone.core.network.discovery.DiscoveryClient
 import com.neteinstein.donaclone.core.network.discovery.UdpDiscoveryClient
+import com.neteinstein.donaclone.core.network.donaJson
 import com.neteinstein.donaclone.core.network.logging.donaHttpLoggingInterceptor
 import com.neteinstein.donaclone.core.network.socket.DomotalkSocket
 import kotlinx.serialization.json.Json
@@ -21,14 +22,7 @@ private const val GITHUB_QUALIFIER = "github"
 
 val networkModule =
     module {
-        single {
-            Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-                coerceInputValues = true
-                explicitNulls = false
-            }
-        }
+        single { donaJson() }
         single<OkHttpClient> {
             DomotalkSocket
                 .defaultOkHttpClient()

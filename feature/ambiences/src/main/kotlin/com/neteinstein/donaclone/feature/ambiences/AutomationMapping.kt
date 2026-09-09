@@ -3,6 +3,7 @@ package com.neteinstein.donaclone.feature.ambiences
 import com.neteinstein.donaclone.core.model.ActionDraft
 import com.neteinstein.donaclone.core.model.AmbienceConditionType
 import com.neteinstein.donaclone.core.model.AutomationActionType
+import com.neteinstein.donaclone.core.model.AutomationDetail
 import com.neteinstein.donaclone.core.model.AutomationDraft
 import com.neteinstein.donaclone.core.model.ConditionDraft
 import com.neteinstein.donaclone.core.model.Device
@@ -27,16 +28,24 @@ fun AutomationEditorUiState.toAutomationDraft(): AutomationDraft =
         stopTriggers = entriesBySection[AutomationSection.FINALIZERS].orEmpty().mapNotNull { it.toTriggerDraft() },
         conditions = entriesBySection[AutomationSection.CONDITIONS].orEmpty().mapNotNull { it.toConditionDraft() },
         actions = entriesBySection[AutomationSection.ACTIONS].orEmpty().mapNotNull { it.toActionDraft() },
+        removedTriggerIds = removedHubIds(AutomationSection.TRIGGERS) + removedHubIds(AutomationSection.FINALIZERS),
+        removedConditionIds = removedHubIds(AutomationSection.CONDITIONS),
+        removedActionIds = removedHubIds(AutomationSection.ACTIONS),
     )
+
+private fun AutomationEditorUiState.removedHubIds(section: AutomationSection): List<Int> =
+    removedHubIdsBySection[section].orEmpty()
 
 private fun AutomationEntryDraft.toTriggerDraft(): TriggerDraft? =
     when (type) {
-        AutomationEntryType.TIMED -> TriggerDraft(type = TriggerType.TIMED, time = wireTime(hour, minute))
+        AutomationEntryType.TIMED ->
+            TriggerDraft(existingId = hubId, type = TriggerType.TIMED, time = wireTime(hour, minute))
         AutomationEntryType.BY_DEVICE -> {
             val d = device ?: return null
             when (d) {
                 is Device.BinaryInput ->
                     TriggerDraft(
+                        existingId = hubId,
                         type = TriggerType.INTERRUPT,
                         triggerer = d.id,
                         triggererType = d.dpuTypeCode(),
@@ -47,6 +56,7 @@ private fun AutomationEntryDraft.toTriggerDraft(): TriggerDraft? =
 
                 is Device.AnalogInput, is Device.Counter ->
                     TriggerDraft(
+                        existingId = hubId,
                         type = TriggerType.SENSOR,
                         sensor = d.id,
                         sensorType = d.dpuTypeCode(),
@@ -68,6 +78,7 @@ private fun AutomationEntryDraft.toConditionDraft(): ConditionDraft? =
     when (type) {
         AutomationEntryType.TIMED ->
             ConditionDraft(
+                existingId = hubId,
                 type = AmbienceConditionType.TIMED,
                 after = wireTime(hour, minute),
                 before = wireTime(endHour ?: hour, endMinute ?: minute),
@@ -79,6 +90,7 @@ private fun AutomationEntryDraft.toConditionDraft(): ConditionDraft? =
             when (d) {
                 is Device.BinaryOutput, is Device.BinaryInput, is Device.Pulse ->
                     ConditionDraft(
+                        existingId = hubId,
                         type = AmbienceConditionType.DEVICE,
                         conditioner = d.id,
                         deviceRoom = d.roomId,
@@ -87,6 +99,7 @@ private fun AutomationEntryDraft.toConditionDraft(): ConditionDraft? =
 
                 is Device.AnalogInput, is Device.Counter, is Device.Shutter, is Device.Dimmer ->
                     ConditionDraft(
+                        existingId = hubId,
                         type = AmbienceConditionType.DEVICE,
                         conditioner = d.id,
                         deviceRoom = d.roomId,
@@ -111,6 +124,7 @@ private fun AutomationEntryDraft.toActionDraft(): ActionDraft? {
             else -> return null
         }
     return ActionDraft(
+        existingId = hubId,
         type = actionType,
         device = d.id,
         deviceName = d.name,
@@ -170,3 +184,116 @@ internal fun Device.dpuSubtype(): Int? =
         is Device.Pulse -> kind.wireValue.takeIf { kind != PulseKind.UNKNOWN }
         else -> null
     }
+
+/**
+ * The other direction: an existing scenario's sub-objects, as read back off the hub, turned into
+ * the same [AutomationEntryDraft] chips the user builds locally. Every entry keeps its
+ * [AutomationEntryDraft.hubId] so [toAutomationDraft] can tell "already on the hub, leave it" from
+ * "newly added, create it".
+ *
+ * [nextId] hands out this editor session's own local ids (see
+ * [AutomationEditorViewModel.addEntry]) — the hub's ids can't double as those, since a brand-new
+ * entry doesn't have one yet.
+ */
+fun AutomationDetail.toEntriesBySection(
+    devices: List<Device>,
+    nextId: () -> Long,
+): Map<AutomationSection, List<AutomationEntryDraft>> {
+    val byId = devices.associateBy { it.id }
+    return mapOf(
+        AutomationSection.TRIGGERS to startTriggers.map { it.toEntry(byId, nextId()) },
+        AutomationSection.ACTIONS to actions.map { it.toEntry(byId, nextId()) },
+        AutomationSection.CONDITIONS to conditions.map { it.toEntry(byId, nextId()) },
+        AutomationSection.FINALIZERS to stopTriggers.map { it.toEntry(byId, nextId()) },
+    )
+}
+
+private fun TriggerDraft.toEntry(
+    devices: Map<Int, Device>,
+    localId: Long,
+): AutomationEntryDraft =
+    if (type == TriggerType.TIMED) {
+        val (hour, minute) = parseWireTime(time)
+        AutomationEntryDraft(
+            id = localId,
+            hubId = existingId,
+            label = name,
+            type = AutomationEntryType.TIMED,
+            hour = hour,
+            minute = minute,
+        )
+    } else {
+        AutomationEntryDraft(
+            id = localId,
+            hubId = existingId,
+            label = name,
+            type = AutomationEntryType.BY_DEVICE,
+            device = devices[triggerer ?: sensor],
+            event = event ?: 0,
+            lowerBound = lowerBound,
+            upperBound = upperBound,
+        )
+    }
+
+private fun ConditionDraft.toEntry(
+    devices: Map<Int, Device>,
+    localId: Long,
+): AutomationEntryDraft =
+    if (type == AmbienceConditionType.TIMED) {
+        val (hour, minute) = parseWireTime(after)
+        val (endHour, endMinute) = parseWireTime(before)
+        AutomationEntryDraft(
+            id = localId,
+            hubId = existingId,
+            label = name,
+            type = AutomationEntryType.TIMED,
+            hour = hour,
+            minute = minute,
+            endHour = endHour,
+            endMinute = endMinute,
+            // A hub-side "every day" is all seven flags set, which is exactly what the editor
+            // shows for the full set — no need for the empty-means-every-day shorthand here.
+            daysOfWeek = daysOfTheWeek.toDayIndices(),
+        )
+    } else {
+        AutomationEntryDraft(
+            id = localId,
+            hubId = existingId,
+            label = name,
+            type = AutomationEntryType.BY_DEVICE,
+            device = devices[conditioner],
+            statusOn = status != 0,
+            lowerBound = greaterThanValue,
+            upperBound = lesserThanValue,
+        )
+    }
+
+private fun ActionDraft.toEntry(
+    devices: Map<Int, Device>,
+    localId: Long,
+): AutomationEntryDraft =
+    AutomationEntryDraft(
+        id = localId,
+        hubId = existingId,
+        label = deviceName,
+        type = AutomationEntryType.BY_DEVICE,
+        device = devices[device],
+        actionCode = action,
+        actionPercentage = percentage,
+        withLast = withLast,
+        delayFromLastSeconds = (delayFromLast / MILLIS_PER_SECOND).toInt(),
+    )
+
+/** `"HH:mm"` (protocol notes §11.6) back into the editor's separate hour/minute fields. Anything
+ * unparseable falls back to midnight rather than dropping the entry — the chip is still worth
+ * showing, and the user can correct the time. */
+private fun parseWireTime(time: String?): Pair<Int, Int> {
+    val parts = time?.split(":") ?: return 0 to 0
+    val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 0
+    val minute = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+    return hour to minute
+}
+
+/** `daysOfTheWeek`'s 7 Monday..Sunday booleans as the editor's 0=Monday..6=Sunday index set. */
+private fun List<Boolean>?.toDayIndices(): Set<Int> =
+    this?.mapIndexedNotNull { index, on -> index.takeIf { on } }?.toSet() ?: emptySet()

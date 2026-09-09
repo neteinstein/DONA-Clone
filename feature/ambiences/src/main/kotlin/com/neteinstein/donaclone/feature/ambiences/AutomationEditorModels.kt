@@ -4,14 +4,14 @@ import com.neteinstein.donaclone.core.model.Device
 
 /** Which of the automation editor's four sections a given [AutomationEntryDraft] belongs to —
  * mirrors the hub's own "Iniciadores de Ação" / "Ações a Executar" / "Condições" / "Finalizadores
- * de Ação" scenario structure. */
+ * de Ação" scenario structure, named in English to match the rest of the app. */
 enum class AutomationSection(
     val title: String,
 ) {
-    TRIGGERS("Iniciadores de Ação"),
-    ACTIONS("Ações a Executar"),
-    CONDITIONS("Condições"),
-    FINALIZERS("Finalizadores de Ação"),
+    TRIGGERS("Triggers"),
+    ACTIONS("Actions to run"),
+    CONDITIONS("Conditions"),
+    FINALIZERS("Finalizers"),
 }
 
 /** How a single trigger/condition/finalizer entry is defined — either watching a device, or a
@@ -52,6 +52,14 @@ data class AutomationEntryDraft(
     val id: Long,
     val type: AutomationEntryType,
     val device: Device? = null,
+    /** The hub's own id for this entry, set only when it was read back off an existing scenario
+     * (see [AutomationEditorViewModel.refresh]). Null means "the user just added this locally and
+     * it still has to be created". */
+    val hubId: Int? = null,
+    /** The hub's own name for a read-back entry — used by [summary] when the device it points at
+     * isn't in this app's device list (an alarm panel, say, or a device kind the domain model
+     * doesn't cover). */
+    val label: String? = null,
     val hour: Int = 0,
     val minute: Int = 0,
     val endHour: Int? = null,
@@ -70,7 +78,7 @@ data class AutomationEntryDraft(
     val summary: String
         get() =
             when (type) {
-                AutomationEntryType.BY_DEVICE -> device?.name ?: "No device selected"
+                AutomationEntryType.BY_DEVICE -> device?.name ?: label ?: "No device selected"
                 AutomationEntryType.TIMED ->
                     if (endHour != null && endMinute != null) {
                         "%02d:%02d - %02d:%02d".format(hour, minute, endHour, endMinute)

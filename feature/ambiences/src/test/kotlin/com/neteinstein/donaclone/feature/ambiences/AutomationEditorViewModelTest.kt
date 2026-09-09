@@ -4,12 +4,19 @@ import com.neteinstein.donaclone.core.common.DonaFailure
 import com.neteinstein.donaclone.core.common.DonaResult
 import com.neteinstein.donaclone.core.domain.usecase.DeleteAutomationUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetAmbiencesUseCase
+import com.neteinstein.donaclone.core.domain.usecase.GetAutomationDetailUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetDevicesUseCase
 import com.neteinstein.donaclone.core.domain.usecase.GetRoomsUseCase
 import com.neteinstein.donaclone.core.domain.usecase.SaveAutomationUseCase
+import com.neteinstein.donaclone.core.model.ActionDraft
 import com.neteinstein.donaclone.core.model.Ambience
+import com.neteinstein.donaclone.core.model.AmbienceConditionType
+import com.neteinstein.donaclone.core.model.AutomationDetail
+import com.neteinstein.donaclone.core.model.ConditionDraft
 import com.neteinstein.donaclone.core.model.Device
 import com.neteinstein.donaclone.core.model.Division
+import com.neteinstein.donaclone.core.model.TriggerDraft
+import com.neteinstein.donaclone.core.model.TriggerType
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -33,6 +40,7 @@ class AutomationEditorViewModelTest {
     private val getRooms = mockk<GetRoomsUseCase>()
     private val getDevices = mockk<GetDevicesUseCase>()
     private val getAmbiences = mockk<GetAmbiencesUseCase>()
+    private val getAutomationDetail = mockk<GetAutomationDetailUseCase>()
     private val saveAutomation = mockk<SaveAutomationUseCase>()
     private val deleteAutomation = mockk<DeleteAutomationUseCase>()
 
@@ -44,6 +52,7 @@ class AutomationEditorViewModelTest {
         Dispatchers.setMain(dispatcher)
         coEvery { getRooms() } returns DonaResult.Success(listOf(kitchen))
         coEvery { getDevices() } returns DonaResult.Success(listOf(light))
+        coEvery { getAutomationDetail(any()) } returns DonaResult.Success(AutomationDetail())
     }
 
     @After
@@ -52,7 +61,7 @@ class AutomationEditorViewModelTest {
     }
 
     private fun createViewModel(ambienceId: Int? = null) =
-        AutomationEditorViewModel(ambienceId, getRooms, getDevices, getAmbiences, saveAutomation, deleteAutomation)
+        AutomationEditorViewModel(ambienceId, getRooms, getDevices, getAmbiences, getAutomationDetail, saveAutomation, deleteAutomation)
 
     @Test
     fun `a new draft cannot be saved without a name or a trigger`() =
@@ -230,5 +239,86 @@ class AutomationEditorViewModelTest {
             viewModel.removeEntry(AutomationSection.ACTIONS, firstId)
 
             assertTrue(viewModel.uiState.value.entriesBySection[AutomationSection.ACTIONS].orEmpty().isEmpty())
+        }
+
+    @Test
+    fun `opening an existing automation shows the triggers, actions, conditions and finalizers it already has`() =
+        runTest(dispatcher) {
+            val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+            coEvery { getAutomationDetail(7) } returns
+                DonaResult.Success(
+                    AutomationDetail(
+                        startTriggers = listOf(TriggerDraft(existingId = 100, type = TriggerType.TIMED, time = "07:20")),
+                        stopTriggers = listOf(TriggerDraft(existingId = 101, type = TriggerType.TIMED, time = "23:45")),
+                        conditions =
+                            listOf(
+                                ConditionDraft(existingId = 102, type = AmbienceConditionType.DEVICE, conditioner = 1, status = 1),
+                            ),
+                        actions = listOf(ActionDraft(existingId = 103, type = 0, device = 1, deviceType = 60, action = 1)),
+                    ),
+                )
+
+            val viewModel = createViewModel(ambienceId = 7)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val entries = viewModel.uiState.value.entriesBySection
+            assertEquals("07:20", entries[AutomationSection.TRIGGERS]?.single()?.summary)
+            assertEquals("23:45", entries[AutomationSection.FINALIZERS]?.single()?.summary)
+            assertEquals("Kitchen light", entries[AutomationSection.CONDITIONS]?.single()?.summary)
+            assertEquals("Kitchen light", entries[AutomationSection.ACTIONS]?.single()?.summary)
+            assertEquals(100, entries[AutomationSection.TRIGGERS]?.single()?.hubId)
+        }
+
+    @Test
+    fun `re-saving an untouched existing automation keeps its entries instead of duplicating them`() =
+        runTest(dispatcher) {
+            val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+            coEvery { getAutomationDetail(7) } returns
+                DonaResult.Success(
+                    AutomationDetail(startTriggers = listOf(TriggerDraft(existingId = 100, type = TriggerType.TIMED, time = "07:20"))),
+                )
+            coEvery { saveAutomation(7, any()) } returns DonaResult.Success(7)
+
+            val viewModel = createViewModel(ambienceId = 7)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify {
+                saveAutomation(
+                    7,
+                    match { it.startTriggers.single().existingId == 100 && it.removedTriggerIds.isEmpty() },
+                )
+            }
+        }
+
+    @Test
+    fun `removing an entry that came from the hub schedules it for deletion on the next save`() =
+        runTest(dispatcher) {
+            val movieNight = Ambience(id = 7, name = "Movie night", isPlaying = false, enabled = true)
+            coEvery { getAmbiences() } returns DonaResult.Success(listOf(movieNight))
+            coEvery { getAutomationDetail(7) } returns
+                DonaResult.Success(
+                    AutomationDetail(
+                        conditions =
+                            listOf(
+                                ConditionDraft(existingId = 102, type = AmbienceConditionType.DEVICE, conditioner = 1, status = 1),
+                            ),
+                    ),
+                )
+            coEvery { saveAutomation(7, any()) } returns DonaResult.Success(7)
+
+            val viewModel = createViewModel(ambienceId = 7)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val conditionId = viewModel.uiState.value.entriesBySection[AutomationSection.CONDITIONS]!!.single().id
+            viewModel.removeEntry(AutomationSection.CONDITIONS, conditionId)
+            viewModel.save()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { saveAutomation(7, match { it.conditions.isEmpty() && it.removedConditionIds == listOf(102) }) }
         }
 }

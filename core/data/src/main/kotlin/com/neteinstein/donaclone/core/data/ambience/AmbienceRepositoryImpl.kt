@@ -7,7 +7,9 @@ import com.neteinstein.donaclone.core.domain.repository.AmbienceRepository
 import com.neteinstein.donaclone.core.domain.repository.ShutterInversionRepository
 import com.neteinstein.donaclone.core.model.ActionDraft
 import com.neteinstein.donaclone.core.model.Ambience
+import com.neteinstein.donaclone.core.model.AmbienceConditionType
 import com.neteinstein.donaclone.core.model.AutomationActionType
+import com.neteinstein.donaclone.core.model.AutomationDetail
 import com.neteinstein.donaclone.core.model.ConditionDraft
 import com.neteinstein.donaclone.core.model.TriggerDraft
 import com.neteinstein.donaclone.core.model.invertShutterPercentage
@@ -29,6 +31,11 @@ class AmbienceRepositoryImpl(
 ) : AmbienceRepository {
     private val rawAmbienceCache = ConcurrentHashMap<Int, JsonObject>()
 
+    /** The parsed side of [rawAmbienceCache] — [getAutomationDetail] needs the decoded
+     * `startTriggers`/`stopTriggers`/`conditions`/`firstAction` ids, which the raw object carries
+     * but only as untyped JSON. */
+    private val ambienceCache = ConcurrentHashMap<Int, AmbienceDto>()
+
     /** Actions must be sent back to `update action` in full (mirrors `update ambience`'s
      * full-object pattern) — cache each created action's DTO so [setActionNext] can rewrite just
      * `nextAction` without clobbering the rest of the object with defaults. */
@@ -38,9 +45,46 @@ class AmbienceRepositoryImpl(
         donaResultCatching {
             api.readAmbiences().map { snapshot ->
                 rawAmbienceCache[snapshot.ambience.id] = snapshot.raw
+                ambienceCache[snapshot.ambience.id] = snapshot.ambience
                 snapshot.ambience.toDomain()
             }
         }
+
+    override suspend fun getAutomationDetail(ambienceId: Int): DonaResult<AutomationDetail> =
+        donaResultCatching {
+            val ambience =
+                ambienceCache[ambienceId]
+                    ?: api.readAmbiences()
+                        .onEach {
+                            rawAmbienceCache[it.ambience.id] = it.raw
+                            ambienceCache[it.ambience.id] = it.ambience
+                        }
+                        .firstOrNull { it.ambience.id == ambienceId }
+                        ?.ambience
+                    ?: throw DomotalkException.MalformedResponse("Ambience $ambienceId not found on the hub")
+            val inverted = shutterInversion.observeInvertedShutterIds().first()
+            AutomationDetail(
+                startTriggers = ambience.startTriggers.mapNotNull { api.readTrigger(it)?.toDraft() },
+                stopTriggers = ambience.stopTriggers.mapNotNull { api.readTrigger(it)?.toDraft() },
+                conditions = ambience.conditions.mapNotNull { api.readCondition(it)?.toDraft() },
+                actions = readActionChain(ambience.firstAction).map { it.toDraft().correctedForInversion(inverted) },
+            )
+        }
+
+    /** Walks `ambience.firstAction -> action.nextAction -> ...` (§11.6). [seen] guards against a
+     * hub whose chain loops back on itself, which would otherwise hang the editor forever. */
+    private suspend fun readActionChain(firstAction: Int?): List<ActionDto> {
+        val chain = mutableListOf<ActionDto>()
+        val seen = mutableSetOf<Int>()
+        var next = firstAction
+        while (next != null && seen.add(next)) {
+            val action = api.readAction(next) ?: break
+            actionCache[next] = action
+            chain += action
+            next = action.nextAction
+        }
+        return chain
+    }
 
     override suspend fun triggerAmbience(
         id: Int,
@@ -57,6 +101,7 @@ class AmbienceRepositoryImpl(
         donaResultCatching {
             val snapshot = api.createAmbience(name, enabled)
             rawAmbienceCache[snapshot.ambience.id] = snapshot.raw
+            ambienceCache[snapshot.ambience.id] = snapshot.ambience
             snapshot.ambience.toDomain()
         }
 
@@ -98,6 +143,7 @@ class AmbienceRepositoryImpl(
         donaResultCatching {
             api.deleteAmbience(id)
             rawAmbienceCache.remove(id)
+            ambienceCache.remove(id)
             Unit
         }
 
@@ -123,6 +169,8 @@ class AmbienceRepositoryImpl(
                 )
             created.id ?: throw DomotalkException.MalformedResponse("create trigger response had no id")
         }
+
+    override suspend fun deleteTrigger(id: Int): DonaResult<Unit> = donaResultCatching { api.deleteTrigger(id) }
 
     override suspend fun linkStartTrigger(
         ambienceId: Int,
@@ -153,6 +201,8 @@ class AmbienceRepositoryImpl(
                 )
             created.id ?: throw DomotalkException.MalformedResponse("create condition response had no id")
         }
+
+    override suspend fun deleteCondition(id: Int): DonaResult<Unit> = donaResultCatching { api.deleteCondition(id) }
 
     override suspend fun linkCondition(
         ambienceId: Int,
@@ -197,11 +247,17 @@ class AmbienceRepositoryImpl(
         }
     }
 
+    override suspend fun deleteAction(id: Int): DonaResult<Unit> =
+        donaResultCatching {
+            api.deleteAction(id)
+            actionCache.remove(id)
+            Unit
+        }
+
     /** An automation action targeting a physically inverted shutter has to be mirrored on the way
      * out for the same reason a live command does — the hub's `0 = close / 1 = open` codes and its
-     * percentage both mean the opposite thing on that module. Actions are write-only here (the
-     * editor can add entries but never reads existing ones back), so this is the only direction
-     * that needs correcting. */
+     * percentage both mean the opposite thing on that module. The mapping is its own inverse, so
+     * [getAutomationDetail] runs the very same correction on the way back in to undo it. */
     private fun ActionDraft.correctedForInversion(inverted: Set<Int>): ActionDraft {
         if (type != AutomationActionType.SHUTTER || device !in inverted) return this
         return when (action) {
@@ -218,6 +274,61 @@ class AmbienceRepositoryImpl(
         DonaResult.Error(DonaFailure.Unknown("Ambience $id hasn't been read yet"))
 
     private fun AmbienceDto.toDomain() = Ambience(id = id, name = name, isPlaying = isPlaying, enabled = enabled)
+
+    private fun TriggerDto.toDraft() =
+        TriggerDraft(
+            existingId = id,
+            type = type,
+            name = name,
+            time = time,
+            triggerer = triggerer,
+            triggererType = triggererType,
+            triggererSubtype = triggererSubtype,
+            event = event,
+            sensor = sensor,
+            sensorType = sensorType,
+            sensorSubtype = sensorSubtype,
+            lowerBound = lowerBound,
+            upperBound = upperBound,
+            deviceRoom = deviceRoom,
+        )
+
+    /**
+     * A read-back condition's `type` is the *device kind*, not the create-time DEVICE/TIMED
+     * selector (see [ConditionDto.type]), so normalize it here: anything carrying a wall-clock
+     * window and no `conditioner` is timed, everything else is a device condition. That keeps the
+     * rest of the app — and a re-save of an untouched entry — on the create-time enum.
+     */
+    private fun ConditionDto.toDraft() =
+        ConditionDraft(
+            existingId = id,
+            type = if (conditioner == null && after != null) AmbienceConditionType.TIMED else AmbienceConditionType.DEVICE,
+            name = name,
+            after = after,
+            before = before,
+            daysOfTheWeek = daysOfTheWeek,
+            conditioner = conditioner,
+            deviceRoom = deviceRoom,
+            status = status,
+            greaterThanValue = greaterThanValue,
+            lesserThanValue = lesserThanValue,
+        )
+
+    private fun ActionDto.toDraft() =
+        ActionDraft(
+            existingId = id,
+            type = type,
+            device = device,
+            deviceName = deviceName,
+            deviceType = deviceType ?: 0,
+            deviceSubtype = deviceSubtype,
+            deviceRoom = deviceRoom,
+            action = action,
+            percentage = percentage,
+            duration = duration,
+            withLast = withLast,
+            delayFromLast = delayFromLast,
+        )
 
     private companion object {
         /** `Shutter.Action` wire codes (protocol notes §11.2). */

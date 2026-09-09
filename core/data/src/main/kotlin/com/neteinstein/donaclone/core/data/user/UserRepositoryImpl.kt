@@ -53,6 +53,7 @@ class UserRepositoryImpl(
         enabled: Boolean,
         remoteAccessible: Boolean,
         newPassword: String?,
+        oldPassword: String?,
     ): DonaResult<Unit> {
         val current = cache[id] ?: return unreadUserError(id)
         val updated =
@@ -64,7 +65,7 @@ class UserRepositoryImpl(
                 password = newPassword?.let { PasswordHasher.md5Hex(it) },
             )
         return donaResultCatching {
-            api.updateUser(updated)
+            api.updateUser(updated, oldPassword?.let { PasswordHasher.md5Hex(it) })
             cache[id] = updated.copy(password = null)
         }
     }

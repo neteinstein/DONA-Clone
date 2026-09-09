@@ -92,6 +92,19 @@ class UserRepositoryImplTest {
         }
 
     @Test
+    fun `updating a user with a new password hashes the old password and sends it alongside the request`() =
+        runTest {
+            coEvery { api.readUsers() } returns listOf(UserDto(id = 1, name = "Alice"))
+            repository.getUsers()
+            val sentOldPassword = slot<String>()
+            coEvery { api.updateUser(any(), capture(sentOldPassword)) } returns Unit
+
+            repository.updateUser(id = 1, name = "Alice", role = 1, enabled = true, remoteAccessible = true, newPassword = "new-pw", oldPassword = "old-pw")
+
+            assertEquals(PasswordHasher.md5Hex("old-pw"), sentOldPassword.captured)
+        }
+
+    @Test
     fun `updating a user without a new password leaves the password field null`() =
         runTest {
             coEvery { api.readUsers() } returns listOf(UserDto(id = 1, name = "Alice"))

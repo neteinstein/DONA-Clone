@@ -46,7 +46,13 @@ data class UserDraft(
     val remoteAccessible: Boolean = false,
     /** New user: required. Existing user: blank means "keep the current password". */
     val password: String = "",
+    /** Existing user only — required alongside [password] to authorize the change; must be blank
+     * when [password] is blank. */
+    val oldPassword: String = "",
 )
+
+/** At least 6 characters with a lowercase letter, an uppercase letter, and a digit. */
+private val PASSWORD_PATTERN = Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{6,}$")
 
 data class ManageUsersUiState(
     val users: kotlin.collections.List<User> = emptyList(),
@@ -149,6 +155,15 @@ class ManageUsersViewModel(
         if (draft.name.isBlank()) return failEditing("Give this user a name.")
         val roleId = draft.roleId ?: return failEditing("Pick a role for this user.")
         if (original == null && draft.password.isBlank()) return failEditing("A new user needs a password.")
+        if (draft.password.isNotBlank() && !PASSWORD_PATTERN.matches(draft.password)) {
+            return failEditing("Password must be at least 6 characters and include an uppercase letter, a lowercase letter, and a number.")
+        }
+        if (original != null && draft.password.isNotBlank() && draft.oldPassword.isBlank()) {
+            return failEditing("Enter the current password to set a new one.")
+        }
+        if (original != null && draft.password.isBlank() && draft.oldPassword.isNotBlank()) {
+            return failEditing("Enter a new password, or clear the current password field.")
+        }
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -166,6 +181,7 @@ class ManageUsersViewModel(
                         enabled = draft.enabled,
                         remoteAccessible = draft.remoteAccessible,
                         newPassword = draft.password.ifBlank { null },
+                        oldPassword = draft.oldPassword.ifBlank { null },
                     )
                 }
             when (result) {

@@ -40,7 +40,8 @@ class UpdateUserUseCase(
         enabled: Boolean,
         remoteAccessible: Boolean,
         newPassword: String? = null,
-    ): DonaResult<Unit> = repository.updateUser(id, name, role, enabled, remoteAccessible, newPassword)
+        oldPassword: String? = null,
+    ): DonaResult<Unit> = repository.updateUser(id, name, role, enabled, remoteAccessible, newPassword, oldPassword)
 }
 
 class DeleteUserUseCase(

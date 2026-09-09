@@ -17,7 +17,8 @@ interface UserRepository {
 
     /** `update user` on the cached dto for [id] — requires [getUsers] to have populated the cache
      * first (mirrors `AmbienceRepository.updateAmbienceFields`'s own precondition). Pass
-     * [newPassword] to also change the account's password. */
+     * [newPassword] to also change the account's password; the hub requires [oldPassword] to
+     * authorize that change. */
     suspend fun updateUser(
         id: Int,
         name: String,
@@ -25,6 +26,7 @@ interface UserRepository {
         enabled: Boolean,
         remoteAccessible: Boolean,
         newPassword: String? = null,
+        oldPassword: String? = null,
     ): DonaResult<Unit>
 
     /** `delete user`, filtered by `id` (§11.4). */

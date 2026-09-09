@@ -141,6 +141,24 @@ class ManageUsersViewModelTest {
         }
 
     @Test
+    fun `saving a new user with a password that doesn't meet the strength rules explains why`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startAddingUser()
+            viewModel.updateDraft { it.copy(name = "Bob", password = "weakpw") }
+
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify(exactly = 0) { createUser(any(), any(), any(), any(), any()) }
+            assertEquals(
+                "Password must be at least 6 characters and include an uppercase letter, a lowercase letter, and a number.",
+                (viewModel.uiState.value.mode as ManageUsersMode.Editing).error,
+            )
+        }
+
+    @Test
     fun `saving a new user without a role loaded does nothing`() =
         runTest(dispatcher) {
             coEvery { getRoles() } returns DonaResult.Success(emptyList())
@@ -158,23 +176,23 @@ class ManageUsersViewModelTest {
     @Test
     fun `saving a new user creates it with the hub's default remote-access setting and returns to the list`() =
         runTest(dispatcher) {
-            coEvery { createUser("Bob", "pw", 1, true, false) } returns DonaResult.Success(User(id = 2, name = "Bob"))
+            coEvery { createUser("Bob", "Passw0rd", 1, true, false) } returns DonaResult.Success(User(id = 2, name = "Bob"))
             val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
             viewModel.startAddingUser()
-            viewModel.updateDraft { it.copy(name = "Bob", password = "pw") }
+            viewModel.updateDraft { it.copy(name = "Bob", password = "Passw0rd") }
 
             viewModel.saveDraft()
             dispatcher.scheduler.advanceUntilIdle()
 
-            coVerify { createUser("Bob", "pw", 1, true, false) }
+            coVerify { createUser("Bob", "Passw0rd", 1, true, false) }
             assertEquals(ManageUsersMode.List, viewModel.uiState.value.mode)
         }
 
     @Test
     fun `saving an edited user updates it with a null password when none was entered`() =
         runTest(dispatcher) {
-            coEvery { updateUser(1, "Alicia", 1, true, true, null) } returns DonaResult.Success(Unit)
+            coEvery { updateUser(1, "Alicia", 1, true, true, null, null) } returns DonaResult.Success(Unit)
             val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
             viewModel.startEditingUser(alice)
@@ -183,14 +201,14 @@ class ManageUsersViewModelTest {
             viewModel.saveDraft()
             dispatcher.scheduler.advanceUntilIdle()
 
-            coVerify { updateUser(1, "Alicia", 1, true, true, null) }
+            coVerify { updateUser(1, "Alicia", 1, true, true, null, null) }
             assertEquals(ManageUsersMode.List, viewModel.uiState.value.mode)
         }
 
     @Test
     fun `saving an edited user sends the newly selected role`() =
         runTest(dispatcher) {
-            coEvery { updateUser(1, "Alice", 2, true, true, null) } returns DonaResult.Success(Unit)
+            coEvery { updateUser(1, "Alice", 2, true, true, null, null) } returns DonaResult.Success(Unit)
             val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
             viewModel.startEditingUser(alice)
@@ -199,13 +217,13 @@ class ManageUsersViewModelTest {
             viewModel.saveDraft()
             dispatcher.scheduler.advanceUntilIdle()
 
-            coVerify { updateUser(1, "Alice", 2, true, true, null) }
+            coVerify { updateUser(1, "Alice", 2, true, true, null, null) }
         }
 
     @Test
     fun `a save failure keeps the editor open and surfaces an error`() =
         runTest(dispatcher) {
-            coEvery { updateUser(any(), any(), any(), any(), any(), any()) } returns
+            coEvery { updateUser(any(), any(), any(), any(), any(), any(), any()) } returns
                 DonaResult.Error(DonaFailure.Unknown("nope"))
             val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
@@ -236,7 +254,80 @@ class ManageUsersViewModelTest {
             val mode = viewModel.uiState.value.mode
             assertTrue(mode is ManageUsersMode.Editing)
             assertEquals("Give this user a name.", (mode as ManageUsersMode.Editing).error)
-            coVerify(exactly = 0) { updateUser(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { updateUser(any(), any(), any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `saving an edited user with a new password but no old password explains why`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startEditingUser(alice)
+            viewModel.updateDraft { it.copy(password = "Passw0rd") }
+
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val mode = viewModel.uiState.value.mode
+            assertTrue(mode is ManageUsersMode.Editing)
+            assertEquals("Enter the current password to set a new one.", (mode as ManageUsersMode.Editing).error)
+            coVerify(exactly = 0) { updateUser(any(), any(), any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `saving an edited user with an old password but no new password explains why`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startEditingUser(alice)
+            viewModel.updateDraft { it.copy(oldPassword = "current-pw") }
+
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val mode = viewModel.uiState.value.mode
+            assertTrue(mode is ManageUsersMode.Editing)
+            assertEquals(
+                "Enter a new password, or clear the current password field.",
+                (mode as ManageUsersMode.Editing).error,
+            )
+            coVerify(exactly = 0) { updateUser(any(), any(), any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `saving a password that doesn't meet the strength rules explains why`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startEditingUser(alice)
+            viewModel.updateDraft { it.copy(password = "weak", oldPassword = "current-pw") }
+
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val mode = viewModel.uiState.value.mode
+            assertTrue(mode is ManageUsersMode.Editing)
+            assertEquals(
+                "Password must be at least 6 characters and include an uppercase letter, a lowercase letter, and a number.",
+                (mode as ManageUsersMode.Editing).error,
+            )
+            coVerify(exactly = 0) { updateUser(any(), any(), any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `saving an edited user with a valid new and old password sends both`() =
+        runTest(dispatcher) {
+            coEvery { updateUser(1, "Alice", 1, true, true, "Passw0rd", "current-pw") } returns DonaResult.Success(Unit)
+            val viewModel = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.startEditingUser(alice)
+            viewModel.updateDraft { it.copy(password = "Passw0rd", oldPassword = "current-pw") }
+
+            viewModel.saveDraft()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            coVerify { updateUser(1, "Alice", 1, true, true, "Passw0rd", "current-pw") }
+            assertEquals(ManageUsersMode.List, viewModel.uiState.value.mode)
         }
 
     @Test
@@ -257,14 +348,14 @@ class ManageUsersViewModelTest {
     @Test
     fun `toggling enabled sends the user's other fields unchanged`() =
         runTest(dispatcher) {
-            coEvery { updateUser(1, "Alice", 1, false, true, null) } returns DonaResult.Success(Unit)
+            coEvery { updateUser(1, "Alice", 1, false, true, null, null) } returns DonaResult.Success(Unit)
             val viewModel = viewModel()
             dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.setEnabled(alice, false)
             dispatcher.scheduler.advanceUntilIdle()
 
-            coVerify { updateUser(1, "Alice", 1, false, true, null) }
+            coVerify { updateUser(1, "Alice", 1, false, true, null, null) }
         }
 
     @Test
